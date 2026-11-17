@@ -3,7 +3,7 @@ import {createHash, createCipheriv, createDecipheriv, randomBytes} from 'node:cr
 import {ApiError, requireValue} from './errors.js';
 import {setTimeout as delay} from 'node:timers/promises';
 
-const schema = [
+export const MYSQL_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS trading_api_operations (
     id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
     namespace CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -25,6 +25,20 @@ const schema = [
     updated_ms BIGINT NOT NULL
   ) ENGINE=InnoDB`,
 ];
+
+const databaseErrors = new Map([
+  ['ER_ACCESS_DENIED_ERROR', 'DB_ACCESS_DENIED'],
+  ['ER_DBACCESS_DENIED_ERROR', 'DB_ACCESS_DENIED'],
+  ['ER_BAD_DB_ERROR', 'DB_DATABASE_NOT_FOUND'],
+  ['ER_NO_SUCH_TABLE', 'DB_SCHEMA_NOT_INITIALIZED'],
+  ['ECONNREFUSED', 'DB_CONNECTION_REFUSED'],
+  ['ENOTFOUND', 'DB_HOST_NOT_FOUND'],
+  ['ETIMEDOUT', 'DB_CONNECTION_TIMEOUT'],
+  ['PROTOCOL_SEQUENCE_TIMEOUT', 'DB_CONNECTION_TIMEOUT'],
+  ['HANDSHAKE_SSL_ERROR', 'DB_TLS_VERIFICATION_FAILED'],
+  ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'DB_TLS_VERIFICATION_FAILED'],
+  ['CERT_HAS_EXPIRED', 'DB_TLS_VERIFICATION_FAILED'],
+]);
 
 export function sealTokens(tokens, key, namespace) {
   const iv = randomBytes(12);
@@ -60,7 +74,7 @@ export class MysqlStore {
   }
 
   async migrate() {
-    for (const sql of schema) await this.pool.query({sql, timeout: 10000});
+    for (const sql of MYSQL_SCHEMA) await this.pool.query({sql, timeout: 10000});
   }
 
   async withLock(action) {
@@ -107,7 +121,9 @@ export class MysqlStore {
       return await action(scoped);
     } catch (error) {
       if (error instanceof ApiError) throw error;
-      throw new ApiError('PERSISTENCE_UNAVAILABLE', 503);
+      // Expose only a fixed diagnostic code, never a driver message, SQL text,
+      // hostname, username, password or decrypted token.
+      throw new ApiError(databaseErrors.get(error?.code) || 'PERSISTENCE_UNAVAILABLE', 503);
     } finally {
       if (connection) {
         if (acquired) {

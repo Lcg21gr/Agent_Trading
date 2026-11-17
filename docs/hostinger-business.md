@@ -24,4 +24,8 @@ El build correcto comprueba sintaxis; no demuestra disponibilidad del proceso de
 
 Al iniciar correctamente, los registros muestran `{"event":"api_listening",...}`. Si falla, muestran `{"event":"api_start_failed","code":"..."}`. Los códigos `CONFIG_*` identifican la validación de configuración que falló; `EADDRINUSE`, `EACCES` y `EADDRNOTAVAIL` distinguen fallos al abrir el puerto. No se registran valores de las variables ni errores remotos completos.
 
+Si `/health` responde 200 pero `/ready` falla por persistencia, la respuesta identifica una causa conocida sin exponer datos del driver: `DB_ACCESS_DENIED` (credenciales o permisos), `DB_DATABASE_NOT_FOUND` (nombre de base), `DB_SCHEMA_NOT_INITIALIZED` (tablas pendientes), `DB_CONNECTION_REFUSED` (host/servicio), `DB_HOST_NOT_FOUND`, `DB_CONNECTION_TIMEOUT` o `DB_TLS_VERIFICATION_FAILED`. Los casos no reconocidos conservan `PERSISTENCE_UNAVAILABLE`.
+
+Para la primera inicialización sin ejecutar npm por SSH, abrir phpMyAdmin desde hPanel, seleccionar la base dedicada configurada e importar [mysql-init.sql](mysql-init.sql). El archivo se generó de las mismas sentencias que utiliza `npm run db:migrate`; crea solo `trading_api_operations` y `trading_api_tokens`, sin borrar ni reemplazar tablas existentes. Si la API ya tenía historial y sus tablas se perdieron, recuperar y conciliar ese historial antes de inicializar otra vez.
+
 Si el despliegue termina pero `/health` devuelve 503, revisar los registros de ejecución o `domains/talentouniversal.online/hbuilds/current/nodejs/stderr.log`. `/health` funciona sin consultar MySQL ni cTrader; un 503 HTML en esa ruta no confirma un fallo de esas integraciones. Verificar primero que Hostinger esté usando el commit corregido y la entrada `src/server.js`.
