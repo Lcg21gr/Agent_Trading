@@ -3,6 +3,7 @@ import {randomBytes} from 'node:crypto';
 import {WebSocketServer} from 'ws';
 import {config} from '../../src/config.js';
 import {DemoClient, withDemo} from '../../src/ctrader.js';
+import {DemoReadSession} from '../../src/read-session.js';
 import {TradingService} from '../../src/trading.js';
 import {createServer} from '../../src/app.js';
 import {ApiError} from '../../src/errors.js';
@@ -36,84 +37,100 @@ export class MemoryStore {
 }
 
 export async function fixture(t, options = {}) {
-  const state = {positions: [], history: [], calls: [], mode: options.mode || 'normal',
+  const state = {positions: [], history: [], calls: [], connections: 0, mode: options.mode || 'normal',
     live: options.live || false, scope: options.scope ?? 1, symbol: structuredClone(symbol),
     symbolName: 'EURUSD', bid: 1.1,
     trader: {ctidTraderAccountId: 12, balance: 1000000, moneyDigits: 2, depositAssetId: 1, accessRights: 0, accountType: 0},
     quoteOffset: 0, spread: 0.0001, ...options.state};
   const brokerHttp = http.createServer();
   const wss = new WebSocketServer({server: brokerHttp});
-  wss.on('connection', (ws) => ws.on('message', (data) => {
-    const m = JSON.parse(data.toString());
-    const p = m.payload;
-    if (m.payloadType === 51) return;
-    state.calls.push(structuredClone(m));
-    const send = (type, payload, binary = false) => ws.send(JSON.stringify({clientMsgId: m.clientMsgId, payloadType: type, ...(payload === undefined ? {} : {payload})}), {binary});
-    const wrap = (payload) => ({ctidTraderAccountId: 12, ...payload});
-    switch (m.payloadType) {
-      case 2100: return send(2101); // Real cTrader omits the empty payload.
-      case 2149:
-        if (state.invalidAccess && p.accessToken !== 'fixture-renewed') return send(2142, {errorCode: 'CH_ACCESS_TOKEN_INVALID', description: 'fixture-sensitive-description'});
-        return send(2150, {permissionScope: state.scope, ctidTraderAccount: [{traderLogin: 5371977, isLive: state.live, ctidTraderAccountId: 12}]});
-      case 2102: return send(2103, wrap({}));
-      case 2121: return send(2122, wrap({trader: state.trader}));
-      case 2112: return send(2113, wrap({asset: [{assetId: 1, name: 'USD'}]}));
-      case 2187: return send(2188, wrap({moneyDigits: 2, positionUnrealizedPnL: []}));
-      case 2124: return send(2125, wrap({position: state.positions, order: []}), true);
-      case 2114: return send(2115, wrap({symbol: [{symbolId: state.symbol.symbolId, symbolName: state.symbolName, enabled: state.symbolEnabled ?? true}]}));
-      case 2116: return send(2117, wrap({symbol: [state.symbol]}));
-      case 2139: return send(2140, wrap({moneyDigits: 2, margin: [{volume: p.volume[0], buyMargin: 300, sellMargin: 300}]}));
-      case 2127: {
-        send(2128, wrap({}));
-        const ts = Date.now() + state.quoteOffset;
-        ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: state.symbol.symbolId, bid: Math.round(state.bid * 100000), timestamp: ts})}));
-        ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: state.symbol.symbolId, ask: Math.round((state.bid + state.spread) * 100000), timestamp: ts})}));
-        return;
-      }
-      case 2106: {
-        if (state.mode === 'reject') return send(2132, wrap({errorCode: 'NOT_ENOUGH_MONEY', description: 'fixture-sensitive-description'}));
-        const entry = p.tradeSide === 1 ? state.bid + state.spread : state.bid;
-        const direction = p.tradeSide === 1 ? 1 : -1;
-        const position = {positionId: 71, positionStatus: 1, price: entry,
-          tradeData: {symbolId: p.symbolId, volume: p.volume, tradeSide: p.tradeSide, label: p.label},
-          stopLoss: entry - direction * p.relativeStopLoss / 100000,
-          takeProfit: entry + direction * p.relativeTakeProfit / 100000, usedMargin: 300, moneyDigits: 2};
-        if (state.mode === 'no-protection') delete position.stopLoss;
-        if (state.mode === 'wrong-protection') position.stopLoss -= 0.005;
-        state.positions = [position];
-        const o = {orderId: 81, positionId: 71, clientOrderId: p.clientOrderId, orderStatus: 2, executedVolume: p.volume, tradeData: position.tradeData};
-        state.history.push(o);
-        if (state.mode === 'partial-then-reject') {
-          position.tradeData.volume = p.volume / 2;
-          o.executedVolume = p.volume / 2;
-          o.orderStatus = 5;
-          send(2126, wrap({executionType: 11, order: o, position}));
-          return setTimeout(() => send(2132, wrap({errorCode: 'TRADING_BAD_VOLUME'})), 5);
+  wss.on('connection', (ws) => {
+    state.connections++;
+    ws.on('message', (data) => {
+      const m = JSON.parse(data.toString());
+      const p = m.payload;
+      if (m.payloadType === 51) return;
+      state.calls.push(structuredClone(m));
+      const send = (type, payload, binary = false) => {
+        const emit = () => { if (ws.readyState === 1) ws.send(JSON.stringify({clientMsgId: m.clientMsgId, payloadType: type, ...(payload === undefined ? {} : {payload})}), {binary}); };
+        if (state.holdAccountReads && [2121, 2112, 2187].includes(m.payloadType)) {
+          state.accountReplies ||= [];
+          state.accountReplies.push(emit);
+          if (state.accountReplies.length === 3) state.accountReplies.splice(0).reverse().forEach((reply) => reply());
+          return;
         }
-        send(2126, wrap({executionType: 2, order: o}));
-        if (state.mode === 'drop-after-fill') return setTimeout(() => ws.close(), 10);
-        if (state.mode === 'accepted-only') return;
-        return setTimeout(() => send(2126, wrap({executionType: 3, order: o, position, deal: {dealId: 91}})), 5);
+        if (state.responseDelayMs) setTimeout(emit, state.responseDelayMs);
+        else emit();
+      };
+      const wrap = (payload) => ({ctidTraderAccountId: 12, ...payload});
+      switch (m.payloadType) {
+        case 2100: return send(2101); // Real cTrader omits the empty payload.
+        case 2149:
+          if (state.invalidAccess && p.accessToken !== 'fixture-renewed') return send(2142, {errorCode: 'CH_ACCESS_TOKEN_INVALID', description: 'fixture-sensitive-description'});
+          return send(2150, {permissionScope: state.scope, ctidTraderAccount: [{traderLogin: 5371977, isLive: state.live, ctidTraderAccountId: 12}]});
+        case 2102: return send(2103, wrap({}));
+        case 2121: return send(2122, wrap({trader: state.trader}));
+        case 2112: return send(2113, wrap({asset: [{assetId: 1, name: 'USD'}]}));
+        case 2187: return send(2188, wrap({moneyDigits: 2, positionUnrealizedPnL: []}));
+        case 2124: return send(2125, wrap({position: state.positions, order: []}), true);
+        case 2114: return send(2115, wrap({symbol: [{symbolId: state.symbol.symbolId, symbolName: state.symbolName, enabled: state.symbolEnabled ?? true}]}));
+        case 2116: return send(2117, wrap({symbol: [state.symbol]}));
+        case 2139: return send(2140, wrap({moneyDigits: 2, margin: [{volume: p.volume[0], buyMargin: 300, sellMargin: 300}]}));
+        case 2127: {
+          send(2128, wrap({}));
+          const ts = Date.now() + state.quoteOffset;
+          ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: state.symbol.symbolId, bid: Math.round(state.bid * 100000), timestamp: ts})}));
+          ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: state.symbol.symbolId, ask: Math.round((state.bid + state.spread) * 100000), timestamp: ts})}));
+          return;
+        }
+        case 2129: return send(2130, wrap({}));
+        case 2106: {
+          if (state.mode === 'reject') return send(2132, wrap({errorCode: 'NOT_ENOUGH_MONEY', description: 'fixture-sensitive-description'}));
+          const entry = p.tradeSide === 1 ? state.bid + state.spread : state.bid;
+          const direction = p.tradeSide === 1 ? 1 : -1;
+          const position = {positionId: 71, positionStatus: 1, price: entry,
+            tradeData: {symbolId: p.symbolId, volume: p.volume, tradeSide: p.tradeSide, label: p.label},
+            stopLoss: entry - direction * p.relativeStopLoss / 100000,
+            takeProfit: entry + direction * p.relativeTakeProfit / 100000, usedMargin: 300, moneyDigits: 2};
+          if (state.mode === 'no-protection') delete position.stopLoss;
+          if (state.mode === 'wrong-protection') position.stopLoss -= 0.005;
+          state.positions = [position];
+          const o = {orderId: 81, positionId: 71, clientOrderId: p.clientOrderId, orderStatus: 2, executedVolume: p.volume, tradeData: position.tradeData};
+          state.history.push(o);
+          if (state.mode === 'partial-then-reject') {
+            position.tradeData.volume = p.volume / 2;
+            o.executedVolume = p.volume / 2;
+            o.orderStatus = 5;
+            send(2126, wrap({executionType: 11, order: o, position}));
+            return setTimeout(() => send(2132, wrap({errorCode: 'TRADING_BAD_VOLUME'})), 5);
+          }
+          send(2126, wrap({executionType: 2, order: o}));
+          if (state.mode === 'drop-after-fill') return setTimeout(() => ws.close(), 10);
+          if (state.mode === 'accepted-only') return;
+          return setTimeout(() => send(2126, wrap({executionType: 3, order: o, position, deal: {dealId: 91}})), 5);
+        }
+        case 2111: {
+          state.positions = state.positions.filter((position) => Number(position.positionId) !== p.positionId);
+          return send(2126, wrap({executionType: 3, order: {orderId: 82}, deal: {dealId: 92}}));
+        }
+        case 2175: return send(2176, wrap({order: state.history, hasMore: false}));
+        case 2133: return send(2134, wrap({deal: [], hasMore: false}));
+        case 2173: return send(2174, {accessToken: 'fixture-renewed', refreshToken: 'fixture-new-refresh', expiresIn: 3600, tokenType: 'bearer'});
+        default: throw new Error(`Unexpected fixture message ${m.payloadType}`);
       }
-      case 2111: {
-        state.positions = state.positions.filter((position) => Number(position.positionId) !== p.positionId);
-        return send(2126, wrap({executionType: 3, order: {orderId: 82}, deal: {dealId: 92}}));
-      }
-      case 2175: return send(2176, wrap({order: state.history, hasMore: false}));
-      case 2133: return send(2134, wrap({deal: [], hasMore: false}));
-      case 2173: return send(2174, {accessToken: 'fixture-renewed', refreshToken: 'fixture-new-refresh', expiresIn: 3600, tokenType: 'bearer'});
-      default: throw new Error(`Unexpected fixture message ${m.payloadType}`);
-    }
-  }));
+    });
+  });
   await new Promise((r) => brokerHttp.listen(0, '127.0.0.1', r));
   const factory = () => new DemoClient({socketFactory: () => new WebSocket(`ws://127.0.0.1:${brokerHttp.address().port}`), timeoutMs: 200, connectTimeoutMs: 500});
   const store = options.store || new MemoryStore();
   const session = (c, action, opts) => withDemo(c, action, {...opts, factory});
-  const service = new TradingService({...cfg, ...options.cfg}, {store, session});
+  const readSession = options.reuseReadSession ? new DemoReadSession({...cfg, ...options.cfg}, {factory, ...options.readSessionOptions}) : null;
+  const service = new TradingService({...cfg, ...options.cfg}, {store, session, readSession});
   const api = createServer({...cfg, ...options.cfg}, service);
   await new Promise((r) => api.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${api.address().port}`;
   t.after(async () => {
+    service.close();
     for (const ws of wss.clients) ws.terminate();
     await new Promise((r) => wss.close(r));
     await new Promise((r) => brokerHttp.close(r));
@@ -126,5 +143,7 @@ export async function fixture(t, options = {}) {
       ...(body === undefined ? {} : {body: JSON.stringify(body)})});
     return {status: r.status, data: await r.json()};
   };
-  return {state, factory, store, service, call, base};
+  const disconnect = () => { for (const ws of wss.clients) ws.terminate(); };
+  const event = (payloadType, payload) => { for (const ws of wss.clients) if (ws.readyState === 1) ws.send(JSON.stringify({payloadType, payload: {ctidTraderAccountId: 12, ...payload}})); };
+  return {state, factory, store, service, call, base, disconnect, event};
 }

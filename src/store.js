@@ -68,6 +68,7 @@ export class MysqlStore {
     this.lockName = `trading:${this.namespace.slice(0, 56)}`;
     this.key = cfg.encryptionKey;
     this.minimumLockMs = cfg.requestIntervalMs;
+    this.releases = new Set();
     this.pool = mysql.createPool({...cfg.database, connectionLimit: 3, maxIdle: 2,
       waitForConnections: false, connectTimeout: 8000, supportBigNumbers: true, bigNumberStrings: true,
       multipleStatements: false, enableKeepAlive: true});
@@ -127,13 +128,22 @@ export class MysqlStore {
     } finally {
       if (connection) {
         if (acquired) {
-          await delay(Math.max(0, this.minimumLockMs - (Date.now() - started)));
-          try { await connection.query({sql: 'SELECT RELEASE_LOCK(?)', timeout: 3000}, [this.lockName]); connection.release(); }
-          catch { connection.destroy(); }
+          const release = async () => {
+            try { await connection.query({sql: 'SELECT RELEASE_LOCK(?)', timeout: 3000}, [this.lockName]); connection.release(); }
+            catch { connection.destroy(); }
+          };
+          const remaining = Math.max(0, this.minimumLockMs - (Date.now() - started));
+          if (remaining) {
+            // Preserve the account-wide minimum lock duration without delaying
+            // the HTTP result. Shutdown waits for these bounded releases.
+            const pending = delay(remaining).then(release);
+            this.releases.add(pending);
+            pending.then(() => this.releases.delete(pending), () => this.releases.delete(pending));
+          } else await release();
         } else connection.release();
       }
     }
   }
 
-  close() { return this.closing ||= this.pool.end(); }
+  close() { return this.closing ||= (async () => { await Promise.all([...this.releases]); await this.pool.end(); })(); }
 }

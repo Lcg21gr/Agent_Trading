@@ -3,6 +3,7 @@ import {ApiError, BrokerRejection, requireValue} from './errors.js';
 import {withDemo, querySession, isEnum} from './ctrader.js';
 import {fixed, orderBody} from './validation.js';
 import {symbolLimits, symbolAllowed} from './symbol-limits.js';
+import {DemoReadSession} from './read-session.js';
 
 const safeInteger = (value) => Number.isSafeInteger(Number(value));
 const publicOperation = (op) => ({operationId: op.id, kind: op.kind, status: op.status,
@@ -119,7 +120,14 @@ export async function previewOrder(cfg, session, body, now = new Date()) {
 }
 
 export class TradingService {
-  constructor(cfg, {store = null, session = withDemo} = {}) { this.cfg = cfg; this.store = store; this.session = session; }
+  constructor(cfg, {store = null, session = withDemo, readSession = null} = {}) {
+    this.cfg = cfg;
+    this.store = store;
+    this.session = session;
+    this.readSession = readSession || (session === withDemo && cfg.reuseReadSession !== false ? new DemoReadSession(cfg) : null);
+  }
+
+  close() { this.readSession?.close(); }
 
   async handle(kind, args = {}, body = null, key = null) {
     if (kind === 'capabilities') return {data: {
@@ -134,7 +142,10 @@ export class TradingService {
       orderTypes: ['MARKET'], closeMode: 'full_owned_position',
     }};
     const action = async (store) => {
-      const session = (fn) => this.session(this.cfg, fn, {tokenStore: store});
+      const session = (fn) => {
+        this.readSession?.reset();
+        return this.session(this.cfg, fn, {tokenStore: store});
+      };
       if (kind === 'operations') return {data: {operations: (await store.list(args.limit)).map(publicOperation)}};
       if (kind === 'operation') {
         const op = await store.get(args.id);
@@ -143,7 +154,8 @@ export class TradingService {
       }
       if (kind === 'open' || kind === 'close') return this.execute(store, session, kind, args, body, key);
       if (kind === 'reconcile') return this.reconcile(store, session, args.id);
-      return session(async (s) => {
+      const read = (fn) => this.readSession ? this.readSession.withSession(fn, {tokenStore: store}) : session(fn);
+      return read(async (s) => {
         if (kind === 'ready') {
           if (store) await store.check();
           const result = await querySession(this.cfg, s, 'positions');

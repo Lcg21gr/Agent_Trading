@@ -76,6 +76,7 @@ Una respuesta HTTP 202 conserva el resultado como incierto. Consultar `/v1/demo/
 | `CTRADER_CLIENT_ID`, `CTRADER_CLIENT_SECRET` | Aplicación Open API |
 | `CTRADER_ACCESS_TOKEN`, `CTRADER_REFRESH_TOKEN` | Par OAuth de esa aplicación; las órdenes requieren `SCOPE_TRADE` |
 | `CTRADER_ACCOUNT_LOGIN` | Login visible; el ID interno y la condición demo se verifican en cTrader |
+| `CTRADER_REUSE_READ_SESSION` | `true` por defecto: reutiliza la sesión autenticada para consultas; `false` fuerza conexión nueva |
 | `TOKEN_ENCRYPTION_KEY` | 32 bytes en Base64, para cifrado autenticado AES-256-GCM de tokens en MySQL |
 | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` | Base dedicada para el registro y los tokens rotados |
 | `MYSQL_SSL_CA` | CA PEM opcional para conexiones remotas con TLS verificado |
@@ -97,6 +98,8 @@ La apertura comprueba entorno y cuenta, permiso OAuth, acceso del broker, cuenta
 El cierre completo consulta el volumen actual del broker, exige la etiqueta de esta API y verifica que la posición ya no esté abierta. La conciliación nunca envía una orden. Un estado incierto bloquea nuevas aperturas; cerrar posiciones propias continúa disponible cuando trading está habilitado. Un cierre incierto de la misma posición bloquea otro cierre hasta conciliarlo.
 
 Usar una cuenta y una etiqueta exclusivas para esta API. La API serializa sus solicitudes mediante un bloqueo MySQL y limita su ritmo; otros bots o clientes que usen la cuenta pueden cambiarla entre verificaciones. No existe una transacción conjunta entre MySQL y cTrader: el registro previo al envío evita reenvíos automáticos, pero no promete ejecución exactamente una vez ni resolución automática de toda incertidumbre. No borrar registros ni reiniciar las claves de idempotencia.
+
+Las consultas reutilizan una sesión autenticada hasta 5 minutos, con cierre tras 60 segundos sin uso. Posiciones, saldo y PnL se consultan nuevamente al bróker. Las escrituras cierran esa sesión y autentican una nueva; no se reintentan. Una respuesta rápida no elimina el límite de solicitudes: ante 429 respetar `Retry-After`. Ver [rendimiento y mediciones](docs/performance.md).
 
 SL/TP son instrucciones al broker; gaps, slippage y costes pueden cambiar la pérdida. Esta API no calcula una estrategia, un riesgo monetario por operación ni un presupuesto diario. No ofrece órdenes pendientes nuevas, cierres parciales ni modificación de SL/TP en esta versión.
 

@@ -19,6 +19,8 @@ export function config(env = process.env) {
   };
   const enabled = env.TRADING_ENABLED || 'false';
   if (!['true', 'false'].includes(enabled)) throw new Error('CONFIG_TRADING_ENABLED_INVALID');
+  const reuseReadSession = env.CTRADER_REUSE_READ_SESSION || 'true';
+  if (!['true', 'false'].includes(reuseReadSession)) throw new Error('CONFIG_CTRADER_REUSE_READ_SESSION_INVALID');
   const tradingKey = env.TRADING_API_KEY || '';
   if (tradingKey && (!secret(tradingKey) || tradingKey === values.API_KEY)) throw new Error('CONFIG_TRADING_API_KEY_INVALID');
   const encryptionKey = env.TOKEN_ENCRYPTION_KEY || '';
@@ -45,6 +47,7 @@ export function config(env = process.env) {
     ...values, CTRADER_REFRESH_TOKEN: env.CTRADER_REFRESH_TOKEN || '',
     login, port: integer('PORT', 3000, 1, 65535), host: env.HOST || '0.0.0.0',
     tradingEnabled: enabled === 'true', tradingKey, encryptionKey, database, label, symbols, origins,
+    reuseReadSession: reuseReadSession === 'true',
     symbolLimits: parseSymbolLimits(env.SYMBOL_LIMITS_JSON),
     maxVolume: integer('MAX_VOLUME_UNITS', 1000, 1, 1000000) * 100,
     maxPositions: integer('MAX_OPEN_POSITIONS', 1, 1, 20),

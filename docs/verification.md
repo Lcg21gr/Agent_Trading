@@ -1,5 +1,13 @@
 # Verificación técnica — 17 de noviembre de 2026
 
+## Optimización de consultas
+
+- **54 pruebas aprobadas, sin omitidas**, con Node.js 22.23.5, MySQL real aislado y bróker WebSocket simulado. Se comprobó reutilización de lecturas, reemplazo de tokens, desconexión, revocación, caducidad, plazo total, cotizaciones frescas, autenticación nueva de escrituras y conservación de idempotencia. La prueba de MySQL confirma que el bloqueo sigue activo después de una respuesta rápida y que el apagado espera su liberación. La instancia temporal se detuvo y eliminó; no se usó la base productiva.
+- `npm run build` y comprobación de diferencias sin errores. La autenticación HTTP y los cuerpos de operaciones conservan su contrato.
+- Comparación local con HTTP, MySQL aislado y **cTrader demo real**, usando las mismas peticiones guardadas de Postman: posiciones pasó de 1231 a 235 ms de promedio; cuenta/PnL de 2567 a 936 ms, tres muestras por ruta y versión. La primera consulta optimizada de posiciones tardó 1272 ms. Autenticaciones en siete consultas: siete antes, una después. Detalles y límites en [performance.md](performance.md).
+- Se verificó además una sesión reutilizada real alternando cotizaciones ADAUSD/BTCUSD y usando el último evento del símbolo activo: una autenticación, dos desuscripciones y respeto de los timestamps de ambas caras. Solo consultas; el cliente bloqueó apertura, cierre y renovación OAuth.
+- **No desplegado por esta verificación.** Falta publicar el código en Hostinger y repetir allí las mediciones. Las cifras locales no garantizan la latencia del alojamiento ni la frecuencia de un agente consumidor.
+
 ## Ampliación a todos los mercados
 
 El servicio existente ya se verificó desplegado y operativo en Hostinger después de resolver inicio y persistencia. Las secciones de implementación inicial que siguen son históricas; no describen el estado actual del alojamiento.

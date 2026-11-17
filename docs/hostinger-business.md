@@ -1,6 +1,6 @@
 # Despliegue en Hostinger Business
 
-La aplicación está preparada para el hosting Node.js de Business: un proceso HTTP, conexiones WebSocket salientes breves hacia cTrader y MySQL. No requiere Docker, Redis, un VPS ni un worker continuo. Hostinger publica un timeout por solicitud de 120 segundos; el transporte tiene un plazo total de 80 segundos, más las escrituras acotadas a MySQL.
+La aplicación está preparada para el hosting Node.js de Business: un proceso HTTP, conexiones WebSocket salientes hacia cTrader y MySQL. Las lecturas pueden reutilizar la conexión con cierre tras 60 segundos sin uso; las escrituras usan una sesión nueva. No requiere Docker, Redis, un VPS ni un worker de estrategia. Hostinger publica un timeout por solicitud de 120 segundos; el transporte tiene un plazo total de 80 segundos, más las escrituras acotadas a MySQL.
 
 `src/server.js` es el punto de entrada de producción: inicia el servidor al ejecutarse directamente o al cargarse mediante `import`/`require` por un proceso del alojamiento. Lee el `.env` situado en la raíz del proyecto y conserva los valores que Hostinger haya suministrado al proceso. La implementación HTTP reutilizable está en `src/app.js`, que puede importarse sin abrir un puerto.
 
@@ -13,6 +13,8 @@ La aplicación está preparada para el hosting Node.js de Business: un proceso H
 7. Respaldar MySQL y conservar `TOKEN_ENCRYPTION_KEY`. Al redesplegar, reutilizar base, Client ID, cuenta y etiqueta. No crear una base vacía para saltarse operaciones inciertas. Una restauración atrasada puede perder marcas de envío: conciliar con el broker antes de habilitar trading.
 
 No se mantiene un bot entre peticiones. Las protecciones verificadas permanecen en cTrader y no dependen de que esta API siga abierta. Una operación incierta se conserva para conciliar tras un reinicio; una petición interrumpida no se interpreta como una orden fallida. La aplicación no garantiza disponibilidad continua de Hostinger ni monitoreo en segundo plano.
+
+La optimización de lectura se activa por defecto al desplegar el código nuevo; no requiere nuevas claves ni migraciones. `CTRADER_REUSE_READ_SESSION=false` permite desactivar la reutilización y reconstruir/reiniciar conservando el resto del entorno. El alojamiento puede reiniciar procesos o cerrar conexiones inactivas: la consulta siguiente volverá a conectar y tardará más. Para comparar, medir varias consultas espaciadas y separar la primera de las siguientes; los tiempos locales de [performance.md](performance.md) no garantizan los de Hostinger.
 
 Desde un servidor de confianza se pueden guardar las claves de API en el gestor de secretos del cliente. Para n8n, usar credenciales privadas de su nodo HTTP y reutilizar la clave de idempotencia de la misma instrucción en los reintentos. Para una web pública, pasar por un backend que autentique al usuario; no exponer la clave de trading en el navegador.
 

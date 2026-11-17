@@ -45,7 +45,8 @@ test('HTTP to real MySQL and WebSocket broker preserves uncertainty and idempote
   const store = make();
   await store.migrate();
   t.after(() => store.close());
-  const f = await fixture(t, {mode: 'drop-after-fill', store});
+  const f = await fixture(t, {mode: 'drop-after-fill', store, reuseReadSession: true});
+  assert.equal((await f.call('/v1/demo/positions')).status, 200);
   const first = await f.call('/v1/demo/orders', {method: 'POST', body: order, key: 'mysql_test_order_001'});
   assert.equal(first.status, 202);
   const restartedStore = make();
@@ -60,4 +61,22 @@ test('HTTP to real MySQL and WebSocket broker preserves uncertainty and idempote
   const reconciled = await f.call(`/v1/demo/operations/${first.data.operationId}/reconcile`, {method: 'POST', body: {}});
   assert.equal(reconciled.data.status, 'completed');
   assert.equal(f.state.calls.filter((m) => m.payloadType === 2106).length, 1);
+});
+
+test('MySQL minimum account lock outlives a fast response and shutdown waits for its release', options, async () => {
+  const store = make();
+  const second = make();
+  second.namespace = store.namespace;
+  second.lockName = store.lockName;
+  store.minimumLockMs = 1000;
+  try {
+    await store.migrate();
+    const started = Date.now();
+    assert.equal(await store.withLock(async (s) => { await s.check(); return 'ready'; }), 'ready');
+    assert.ok(Date.now() - started < 900, 'Response must not wait for the one-second lock floor');
+    await assert.rejects(second.withLock(() => {}), /ACCOUNT_BUSY/);
+    await store.close();
+    assert.ok(Date.now() - started >= 1000, 'Shutdown must wait for the held account lock');
+    assert.equal(await second.withLock(async () => 'released'), 'released');
+  } finally { await store.close(); await second.close(); }
 });

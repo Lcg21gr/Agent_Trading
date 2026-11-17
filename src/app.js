@@ -92,5 +92,6 @@ export function createServer(cfg, service = new TradingService(cfg)) {
   server.keepAliveTimeout = 5000;
   server.maxHeadersCount = 40;
   server.timeout = 95000;
+  server.once('close', () => service.close?.());
   return server;
 }

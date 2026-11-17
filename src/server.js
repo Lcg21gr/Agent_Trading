@@ -14,6 +14,7 @@ function reportFailure(error) {
 }
 
 let store;
+let service;
 try {
   // A hosting loader can import this entry instead of invoking `npm start`.
   // Load .env explicitly and preserve variables already supplied by the host.
@@ -22,9 +23,11 @@ try {
 
   const cfg = config();
   store = cfg.database ? new MysqlStore(cfg) : null;
-  const server = createServer(cfg, new TradingService(cfg, {store}));
+  service = new TradingService(cfg, {store});
+  const server = createServer(cfg, service);
   server.once('error', (error) => {
     reportFailure(error);
+    service.close();
     store?.close().catch(() => {});
   });
   server.listen(cfg.port, cfg.host, () => {
@@ -32,6 +35,7 @@ try {
   });
   for (const signal of ['SIGTERM', 'SIGINT']) process.once(signal, () => {
     server.close(async () => {
+      service.close();
       try { await store?.close(); process.exit(0); }
       catch { console.error(JSON.stringify({event: 'api_shutdown_failed'})); process.exit(1); }
     });
@@ -39,5 +43,6 @@ try {
   });
 } catch (error) {
   reportFailure(error);
+  service?.close();
   store?.close().catch(() => {});
 }
