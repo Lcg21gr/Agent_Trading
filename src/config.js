@@ -1,3 +1,5 @@
+import {DEFAULT_ALLOWED_SYMBOLS, parseSymbolLimits, validSymbolName} from './symbol-limits.js';
+
 export function config(env = process.env) {
   const values = {};
   for (const key of ['API_KEY', 'CTRADER_CLIENT_ID', 'CTRADER_CLIENT_SECRET', 'CTRADER_ACCESS_TOKEN']) {
@@ -30,8 +32,8 @@ export function config(env = process.env) {
   if (database && !encryptionKey) throw new Error('CONFIG_DATABASE_REQUIRES_ENCRYPTION_KEY');
   if (env.CTRADER_REFRESH_TOKEN && (typeof env.CTRADER_REFRESH_TOKEN !== 'string' || /\s/.test(env.CTRADER_REFRESH_TOKEN))) throw new Error('CONFIG_REFRESH_TOKEN_INVALID');
   if (enabled === 'true' && (!tradingKey || !database || !encryptionKey)) throw new Error('CONFIG_TRADING_REQUIRES_DATABASE_AND_KEYS');
-  const symbols = (env.ALLOWED_SYMBOLS || 'EURUSD').split(',');
-  if (!symbols.length || symbols.some((s) => !/^[A-Z0-9._-]{1,32}$/.test(s)) || new Set(symbols).size !== symbols.length) throw new Error('CONFIG_SYMBOLS_INVALID');
+  const symbols = (env.ALLOWED_SYMBOLS || DEFAULT_ALLOWED_SYMBOLS.join(',')).split(',');
+  if (!symbols.length || symbols.some((s) => !validSymbolName(s)) || new Set(symbols).size !== symbols.length || (symbols.includes('*') && symbols.length !== 1)) throw new Error('CONFIG_SYMBOLS_INVALID');
   const label = env.ORDER_LABEL || 'agent-trading-api';
   if (!/^[a-zA-Z0-9_-]{3,50}$/.test(label)) throw new Error('CONFIG_ORDER_LABEL_INVALID');
   const origins = (env.CORS_ORIGINS || '').split(',').filter(Boolean);
@@ -43,9 +45,11 @@ export function config(env = process.env) {
     ...values, CTRADER_REFRESH_TOKEN: env.CTRADER_REFRESH_TOKEN || '',
     login, port: integer('PORT', 3000, 1, 65535), host: env.HOST || '0.0.0.0',
     tradingEnabled: enabled === 'true', tradingKey, encryptionKey, database, label, symbols, origins,
+    symbolLimits: parseSymbolLimits(env.SYMBOL_LIMITS_JSON),
     maxVolume: integer('MAX_VOLUME_UNITS', 1000, 1, 1000000) * 100,
     maxPositions: integer('MAX_OPEN_POSITIONS', 1, 1, 20),
     maxSpreadPips: integer('MAX_SPREAD_PIPS', 3, 1, 100),
+    maxSpreadBps: integer('MAX_SPREAD_BPS', 300, 1, 10000),
     maxStopPips: integer('MAX_STOP_LOSS_PIPS', 100, 1, 10000),
     marginReservePercent: integer('MARGIN_RESERVE_PERCENT', 50, 1, 95),
     requestIntervalMs: 1000,

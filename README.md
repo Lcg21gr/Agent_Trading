@@ -4,6 +4,8 @@ API HTTP en Node.js para consumir cTrader desde un backend, n8n, scripts u otro 
 
 El contrato consumible está en [docs/openapi.json](docs/openapi.json), con los detalles de reintentos, unidades y respuestas en [docs/api-contract.md](docs/api-contract.md). La guía para el plan Business está en [docs/hostinger-business.md](docs/hostinger-business.md). Hay una colección de peticiones sin secretos en [postman/README.md](postman/README.md).
 
+`ALLOWED_SYMBOLS=*` admite todos los instrumentos habilitados por el bróker para esa cuenta demo: divisas, criptomonedas, índices, metales, acciones u otros instrumentos de su catálogo. Incluye ADAUSD cuando está disponible. No conecta con otros exchanges ni habilita instrumentos que el bróker tenga desactivados. Ver [mercados y configuración](docs/markets.md).
+
 El punto de entrada de producción es `src/server.js`; inicia la API tanto con `npm start` como al importarlo desde el cargador del alojamiento. `src/app.js` contiene la aplicación HTTP para pruebas y reutilización, sin iniciar un servidor al importarse.
 
 ## Inicio local
@@ -38,6 +40,9 @@ Las variables de estos ejemplos se configuran en el cliente de confianza. La URL
 
 ```sh
 curl "$BASE_URL/v1/demo/positions" \
+  -H "Authorization: Bearer $API_KEY"
+
+curl "$BASE_URL/v1/demo/capabilities" \
   -H "Authorization: Bearer $API_KEY"
 
 curl "$BASE_URL/v1/demo/orders/preview" \
@@ -75,12 +80,14 @@ Una respuesta HTTP 202 conserva el resultado como incierto. Consultar `/v1/demo/
 | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` | Base dedicada para el registro y los tokens rotados |
 | `MYSQL_SSL_CA` | CA PEM opcional para conexiones remotas con TLS verificado |
 | `TRADING_ENABLED` | Habilita apertura y cierre; inicialmente `false` |
-| `ALLOWED_SYMBOLS` | Lista explícita separada por comas; inicial `EURUSD` |
+| `ALLOWED_SYMBOLS` | `*` para todo el catálogo habilitado; también admite una lista explícita separada por comas |
+| `SYMBOL_LIMITS_JSON` | Ajustes opcionales de spread y distancia máxima de SL por instrumento; ver `docs/markets.md` |
 | `ORDER_LABEL` | Etiqueta propia y estable de esta instalación |
 | `MAX_VOLUME_UNITS` | Máximo por apertura; inicial 1000 unidades |
 | `MAX_OPEN_POSITIONS` | Máximo total de posiciones de la cuenta; inicial 1 |
-| `MAX_SPREAD_PIPS` | Spread máximo al enviar; inicial 3 pips |
-| `MAX_STOP_LOSS_PIPS` | Distancia máxima de SL; inicial 100 pips |
+| `MAX_SPREAD_PIPS` | Spread máximo para pares de divisas reconocidos; inicial 3 pips |
+| `MAX_SPREAD_BPS` | Spread relativo para los demás instrumentos; inicial 300 puntos básicos, equivalentes al 3% |
+| `MAX_STOP_LOSS_PIPS` | Distancia máxima de SL para pares de divisas reconocidos; inicial 100 pips |
 | `MARGIN_RESERVE_PERCENT` | Porcentaje del margen libre que debe conservarse; inicial 50 |
 | `CORS_ORIGINS` | Orígenes HTTPS de confianza, separados por comas; vacío para uso entre servidores |
 | `PORT`, `HOST` | Puerto asignado por el alojamiento e interfaz de escucha |
@@ -103,4 +110,4 @@ No incluir claves API en JavaScript público: un frontend usa su propio backend 
 
 ## Evidencia
 
-Ver [docs/verification.md](docs/verification.md) para separar pruebas locales con WebSocket simulado y MySQL real de consultas realizadas a cTrader. Las verificaciones de consulta y preview no acreditan un llenado ni un cierre real. No se abrió ni cerró ninguna operación real de la demo y no se ha desplegado en Hostinger.
+Ver [docs/verification.md](docs/verification.md) para separar pruebas locales con WebSocket simulado y MySQL real de consultas realizadas a cTrader. Las verificaciones de consulta y preview no acreditan un llenado ni un cierre real. El servicio existente ya se verificó en Hostinger; la ampliación a todos los mercados requiere publicar esta versión y configurar `ALLOWED_SYMBOLS=*`. Durante esta ampliación no se abrió ni cerró ninguna operación de la demo.

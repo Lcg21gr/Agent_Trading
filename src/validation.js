@@ -1,4 +1,5 @@
 import {ApiError, requireValue} from './errors.js';
+import {validSymbolName} from './symbol-limits.js';
 
 export function positiveId(value) {
   requireValue(typeof value === 'string' && /^[1-9]\d{0,15}$/.test(value) && Number.isSafeInteger(Number(value)), 'INVALID_ID', 400);
@@ -19,7 +20,7 @@ export function fixed(value, digits, code = 'INVALID_DECIMAL') {
 
 export function orderBody(body) {
   exactFields(body, ['symbol', 'side', 'volume', 'stopLossPips', 'takeProfitPips']);
-  requireValue(typeof body.symbol === 'string' && /^[A-Z0-9._-]{1,32}$/.test(body.symbol), 'INVALID_SYMBOL', 400);
+  requireValue(validSymbolName(body.symbol) && body.symbol !== '*', 'INVALID_SYMBOL', 400);
   requireValue(['BUY', 'SELL'].includes(body.side), 'INVALID_SIDE', 400);
   fixed(body.volume, 2, 'INVALID_VOLUME');
   fixed(body.stopLossPips, 2, 'INVALID_STOP_LOSS');

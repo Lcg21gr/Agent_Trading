@@ -8,6 +8,7 @@ Autenticación: `Authorization: Bearer <API_KEY>` para consultas y `Authorizatio
 |---|---|---|
 | GET | `/health` | Estado HTTP público; no prueba conexión al broker |
 | GET | `/ready` | Comprueba MySQL, autenticación y cuenta demo, sin enviar órdenes |
+| GET | `/v1/demo/capabilities` | Configuración activa de mercados y filtros; requiere clave, no consulta al bróker |
 | GET | `/v1/demo/account` | Cuenta, saldo, divisa y PnL flotante |
 | GET | `/v1/demo/positions` | Posiciones abiertas y órdenes pendientes |
 | GET | `/v1/demo/orders` | Órdenes pendientes |
@@ -29,7 +30,11 @@ Apertura y preview comparten exactamente este cuerpo (no se aceptan campos adici
 {"symbol":"EURUSD","side":"BUY","volume":"1000","stopLossPips":"10","takeProfitPips":"20"}
 ```
 
-`volume` son unidades del instrumento, como cadena decimal de hasta dos decimales, no lotes. Los pips se convierten usando `pipPosition` del broker. BUY/SELL en mayúsculas. El símbolo debe aparecer en `ALLOWED_SYMBOLS`. Las operaciones se identifican mediante UUID y `clientOrderId`; la etiqueta `ORDER_LABEL` identifica las posiciones gestionadas por esta instalación.
+`volume` son unidades del instrumento, como cadena decimal de hasta dos decimales, no lotes ni dólares. Los pips se convierten usando `pipPosition` del broker. BUY/SELL en mayúsculas. `symbol` es el nombre exacto del catálogo, respetando mayúsculas, sufijos y espacios internos; hasta 100 caracteres, sin caracteres de control ni espacios en los extremos. `*` es exclusivamente una opción de configuración y no es un símbolo válido en una orden.
+
+`ALLOWED_SYMBOLS=*` permite seleccionar cualquier instrumento habilitado en el catálogo de esa cuenta. Una lista explícita sigue restringiendo los instrumentos. El preview y la apertura vuelven a verificar disponibilidad, modo de trading, mínimos, paso de volumen, precisión, horario, margen y protecciones; permitir un símbolo no garantiza que pueda operarse en cualquier momento. Las operaciones se identifican mediante UUID y `clientOrderId`; la etiqueta `ORDER_LABEL` identifica las posiciones gestionadas por esta instalación.
+
+El preview agrega `volumeUnits`, `minVolumeUnits`, `stepVolumeUnits`, `pipPosition`, `priceDigits`, `spreadBps` y `limits`. Conserva `volume` en centésimas del protocolo. Los filtros efectivos se detallan en [mercados](markets.md); no se define un máximo fijo de exposición en USD. El consumidor elige el volumen y lo somete a preview. La ruta `/capabilities` informa `allowedSymbols`, `allBrokerSymbols`, `marketDefaults`, `forexDefaults`, `symbolLimitOverrides` y `limitsBySymbol`. Con `*`, `limitsBySymbol` enumera únicamente los ajustes explícitos; los demás usan los valores predeterminados según su nombre. No acredita disponibilidad o conexión al bróker; usar `/ready` y `/symbols` para ello.
 
 Historial: `from` y `to` son timestamps Unix en milisegundos (cadenas enteras), ventana máxima 7 días, por defecto últimas 24 horas. `limit` (1–1000, por defecto 100) solo para deals. Se devuelve `hasMore` del broker; la API no afirma que un bloque truncado sea el historial completo. Para retroceder, el consumidor consulta intervalos anteriores, conservando y deduplicando por dealId/orderId los límites inclusivos.
 

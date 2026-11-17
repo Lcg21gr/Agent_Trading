@@ -2,6 +2,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {ApiError, BrokerRejection, requireValue} from './errors.js';
 import {withDemo, querySession, isEnum} from './ctrader.js';
 import {fixed, orderBody} from './validation.js';
+import {symbolLimits, symbolAllowed} from './symbol-limits.js';
 
 const safeInteger = (value) => Number.isSafeInteger(Number(value));
 const publicOperation = (op) => ({operationId: op.id, kind: op.kind, status: op.status,
@@ -52,7 +53,8 @@ function marketIsOpen(symbol, now) {
 
 export async function previewOrder(cfg, session, body, now = new Date()) {
   orderBody(body);
-  requireValue(cfg.symbols.includes(body.symbol), 'SYMBOL_NOT_ALLOWED');
+  requireValue(symbolAllowed(cfg, body.symbol), 'SYMBOL_NOT_ALLOWED');
+  const limits = symbolLimits(cfg, body.symbol);
   requireValue(isEnum(session.permissionScope, 'SCOPE_TRADE', 1), 'TOKEN_HAS_NO_TRADING_PERMISSION', 403);
   const {trader} = await session.request(2121);
   requireValue(trader && String(trader.ctidTraderAccountId) === String(session.accountId), 'ACCOUNT_MISMATCH', 502);
@@ -71,7 +73,7 @@ export async function previewOrder(cfg, session, body, now = new Date()) {
   requireValue(['minVolume', 'maxVolume', 'stepVolume'].every((k) => safeInteger(symbol[k]) && Number(symbol[k]) > 0), 'INVALID_SYMBOL_LIMITS', 502);
   requireValue(volume >= Number(symbol.minVolume) && volume <= Number(symbol.maxVolume) && volume % Number(symbol.stepVolume) === 0, 'INVALID_SYMBOL_VOLUME');
   requireValue(volume <= cfg.maxVolume, 'MAX_VOLUME_EXCEEDED');
-  requireValue(fixed(body.stopLossPips, 2) <= cfg.maxStopPips * 100, 'MAX_STOP_LOSS_EXCEEDED');
+  if (limits.maxStopLossPips !== undefined) requireValue(fixed(body.stopLossPips, 2) <= limits.maxStopLossPips * 100, 'MAX_STOP_LOSS_EXCEEDED');
   requireValue(Number.isInteger(symbol.pipPosition) && symbol.pipPosition >= 0 && symbol.pipPosition <= 5 && Number.isInteger(symbol.digits) && symbol.digits >= 0 && symbol.digits <= 5, 'UNSUPPORTED_SYMBOL_PRECISION');
   const relative = (value) => {
     const raw = fixed(value, 2) * 10 ** (5 - symbol.pipPosition) / 100;
@@ -96,7 +98,9 @@ export async function previewOrder(cfg, session, body, now = new Date()) {
   // Quote is obtained last: validations and DB writes must not consume its age.
   const quote = await session.client.quote(session.accountId, symbolId);
   const spreadPips = (quote.ask - quote.bid) * 10 ** symbol.pipPosition;
-  requireValue(spreadPips <= cfg.maxSpreadPips + 1e-8, 'SPREAD_TOO_HIGH');
+  const spreadBps = (quote.ask - quote.bid) / quote.ask * 10000;
+  if (limits.maxSpreadPips !== undefined) requireValue(spreadPips <= limits.maxSpreadPips + 1e-8, 'SPREAD_TOO_HIGH');
+  if (limits.maxSpreadBps !== undefined) requireValue(spreadBps <= limits.maxSpreadBps + 1e-8, 'SPREAD_TOO_HIGH');
   const entry = body.side === 'BUY' ? quote.ask : quote.bid;
   for (const [rawDistance, minimum] of [[relativeStopLoss, symbol.slDistance], [relativeTakeProfit, symbol.tpDistance]]) {
     requireValue(safeInteger(minimum ?? 0), 'INVALID_SYMBOL_LIMITS', 502);
@@ -107,7 +111,10 @@ export async function previewOrder(cfg, session, body, now = new Date()) {
     requireValue(rawDistance / 100000 >= minPrice + (quote.ask - quote.bid), 'PROTECTION_TOO_CLOSE');
   }
   requireValue(entry - relativeStopLoss / 100000 > 0 && entry - relativeTakeProfit / 100000 > 0, 'INVALID_PROTECTION_PRICE');
-  return {symbolId, volume, relativeStopLoss, relativeTakeProfit, quote, spreadPips, requiredMargin, freeMargin,
+  return {symbolId, volume, relativeStopLoss, relativeTakeProfit, quote, spreadPips, spreadBps, requiredMargin, freeMargin,
+    volumeUnits: Number(body.volume), pipPosition: symbol.pipPosition, priceDigits: symbol.digits,
+    minVolumeUnits: Number(symbol.minVolume) / 100, stepVolumeUnits: Number(symbol.stepVolume) / 100,
+    limits,
     priceStep: 10 ** -symbol.digits, marginReservePercent: cfg.marginReservePercent, estimatedAt: Date.now(), moneyCurrencyAssetId: trader.depositAssetId};
 }
 
@@ -115,6 +122,17 @@ export class TradingService {
   constructor(cfg, {store = null, session = withDemo} = {}) { this.cfg = cfg; this.store = store; this.session = session; }
 
   async handle(kind, args = {}, body = null, key = null) {
+    if (kind === 'capabilities') return {data: {
+      environment: 'demo', tradingEnabled: this.cfg.tradingEnabled,
+      allowedSymbols: [...this.cfg.symbols],
+      allBrokerSymbols: this.cfg.symbols.includes('*'), symbolUniverse: 'enabled_broker_catalog',
+      marketDefaults: {maxVolumeUnits: this.cfg.maxVolume / 100, maxSpreadBps: this.cfg.maxSpreadBps ?? 300},
+      forexDefaults: {maxSpreadPips: this.cfg.maxSpreadPips, maxStopLossPips: this.cfg.maxStopPips},
+      limitsBySymbol: Object.fromEntries((this.cfg.symbols.includes('*') ? Object.keys(this.cfg.symbolLimits || {}) : this.cfg.symbols).map((symbol) => [symbol, symbolLimits(this.cfg, symbol)])),
+      symbolLimitOverrides: this.cfg.symbolLimits || {},
+      volumeInput: 'instrument_units', fixedNotionalUsd: false,
+      orderTypes: ['MARKET'], closeMode: 'full_owned_position',
+    }};
     const action = async (store) => {
       const session = (fn) => this.session(this.cfg, fn, {tokenStore: store});
       if (kind === 'operations') return {data: {operations: (await store.list(args.limit)).map(publicOperation)}};

@@ -123,6 +123,51 @@
         }
       }
     },
+    "/v1/demo/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "summary": "Active market selection and order filters without broker calls",
+        "description": "Authenticated configuration discovery. Use /ready for readiness, /symbols for the catalog, and /orders/preview to validate a concrete instruction. Never submits or retries trading commands.",
+        "tags": [
+          "Queries"
+        ],
+        "security": [
+          {
+            "ReadKey": []
+          },
+          {
+            "TradingKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active application configuration only; does not verify broker connection or current tradability.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          }
+        }
+      }
+    },
     "/v1/demo/account": {
       "get": {
         "operationId": "getAccount",
@@ -1170,8 +1215,11 @@
         "properties": {
           "symbol": {
             "type": "string",
-            "pattern": "^[A-Z0-9._-]{1,32}$",
-            "example": "EURUSD"
+            "pattern": "^(?!\\*$)(?!\\s)(?!.*\\s$)[^\\u0000-\\u001F\\u007F]{1,100}$",
+            "example": "EURUSD",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Exact enabled broker catalog name, including case, suffixes and internal spaces. No control characters or surrounding whitespace. ALLOWED_SYMBOLS=* enables the full catalog, but * is not a valid order symbol."
           },
           "side": {
             "type": "string",
@@ -1260,6 +1308,124 @@
       "Empty": {
         "type": "object",
         "additionalProperties": false
+      },
+      "MarketLimits": {
+        "type": "object",
+        "properties": {
+          "maxVolumeUnits": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "maxSpreadPips": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "maxSpreadBps": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          },
+          "maxStopLossPips": {
+            "type": "number",
+            "minimum": 0,
+            "exclusiveMinimum": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Capabilities": {
+        "type": "object",
+        "required": [
+          "environment",
+          "tradingEnabled",
+          "allowedSymbols",
+          "allBrokerSymbols",
+          "symbolUniverse",
+          "marketDefaults",
+          "forexDefaults",
+          "limitsBySymbol",
+          "symbolLimitOverrides",
+          "volumeInput",
+          "fixedNotionalUsd",
+          "orderTypes",
+          "closeMode"
+        ],
+        "properties": {
+          "environment": {
+            "type": "string",
+            "enum": [
+              "demo"
+            ]
+          },
+          "tradingEnabled": {
+            "type": "boolean"
+          },
+          "allowedSymbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "[\"*\"] admits every enabled instrument in this demo broker catalog; an explicit list remains restrictive."
+          },
+          "allBrokerSymbols": {
+            "type": "boolean"
+          },
+          "symbolUniverse": {
+            "type": "string",
+            "enum": [
+              "enabled_broker_catalog"
+            ]
+          },
+          "marketDefaults": {
+            "$ref": "#/components/schemas/MarketLimits"
+          },
+          "forexDefaults": {
+            "$ref": "#/components/schemas/MarketLimits"
+          },
+          "limitsBySymbol": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MarketLimits"
+            },
+            "description": "Effective filters for an explicit allowlist; in wildcard mode, only explicitly overridden names. Actual order previews return their effective limits."
+          },
+          "symbolLimitOverrides": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MarketLimits"
+            }
+          },
+          "volumeInput": {
+            "type": "string",
+            "enum": [
+              "instrument_units"
+            ]
+          },
+          "fixedNotionalUsd": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "description": "No fixed USD allocation or notional cap is imposed. Broker and configured volume, margin and position limits still apply."
+          },
+          "orderTypes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "MARKET"
+              ]
+            }
+          },
+          "closeMode": {
+            "type": "string",
+            "enum": [
+              "full_owned_position"
+            ]
+          }
+        }
       }
     },
     "securitySchemes": {

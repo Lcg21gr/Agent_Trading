@@ -1,5 +1,17 @@
 # Verificación técnica — 17 de noviembre de 2026
 
+## Ampliación a todos los mercados
+
+El servicio existente ya se verificó desplegado y operativo en Hostinger después de resolver inicio y persistencia. Las secciones de implementación inicial que siguen son históricas; no describen el estado actual del alojamiento.
+
+- `ALLOWED_SYMBOLS=*` implementado para todo el catálogo habilitado del bróker demo, con nombres exactos que pueden contener espacios internos, mayúsculas/minúsculas y sufijos. Una lista explícita sigue siendo restrictiva.
+- Node.js 22: `npm run build` y `npm test` correctos. **39 pruebas aprobadas y 2 MySQL omitidas** por no disponer en esta ejecución de `TEST_MYSQL_PORT`. No se atribuye nueva validación de MySQL real a este cambio.
+- Las nuevas pruebas cubren ADAUSD BUY/SELL y cierre con WebSocket simulado, BTC fraccional, otros mercados, catálogo deshabilitado/ausente, spread, precisión, comodín, overrides y autenticación de capacidades. Las pruebas previas conservan cobertura de idempotencia, incertidumbre, margen y startup.
+- **Previews con cTrader demo y el código nuevo**, sin desplegar: ADAUSD, 64 unidades, SL 10 pips/TP 20 pips; BTCUSD, 0,01 unidades, SL 1000/TP 2000. Ambos validados con cotización fresca y margen actual en el momento de prueba. No representan recomendaciones ni importes garantizados. El cliente de verificación bloqueó expresamente mensajes de apertura, cierre y renovación OAuth.
+- OpenAPI: lint de sintaxis sin incidencias. Colección: **17 peticiones, cero errores y advertencias**. Son verificaciones estructurales; no se ejecutó la colección completa contra la demo.
+- No se cambió el esquema MySQL, ninguna clave ni los estados de operaciones. No se enviaron órdenes al bróker. No se agregó un tope fijo en USD.
+- **Pendiente para esta ampliación:** publicar el nuevo código y cambiar `ALLOWED_SYMBOLS` a `*` en Hostinger. Solo después `/v1/demo/capabilities` remoto puede acreditar la configuración activa. Un preview local contra cTrader no acredita la publicación del código en el alojamiento.
+
 ## Alcance comprobado
 
 - Node.js local: 25.9.0. Compatibilidad comprobada ejecutando la suite completa también con **Node.js 22.23.5**.

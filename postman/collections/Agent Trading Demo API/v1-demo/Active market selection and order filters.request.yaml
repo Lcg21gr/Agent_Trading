@@ -1,0 +1,16 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "url": "{{baseUrl}}/v1/demo/capabilities",
+  "description": "Authenticated configuration discovery. Use /ready for readiness, /symbols for the catalog, and /orders/preview to validate a concrete instruction. Never submits or retries trading commands.",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "order": 500,
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  }
+}

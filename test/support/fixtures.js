@@ -38,6 +38,7 @@ export class MemoryStore {
 export async function fixture(t, options = {}) {
   const state = {positions: [], history: [], calls: [], mode: options.mode || 'normal',
     live: options.live || false, scope: options.scope ?? 1, symbol: structuredClone(symbol),
+    symbolName: 'EURUSD', bid: 1.1,
     trader: {ctidTraderAccountId: 12, balance: 1000000, moneyDigits: 2, depositAssetId: 1, accessRights: 0, accountType: 0},
     quoteOffset: 0, spread: 0.0001, ...options.state};
   const brokerHttp = http.createServer();
@@ -59,21 +60,24 @@ export async function fixture(t, options = {}) {
       case 2112: return send(2113, wrap({asset: [{assetId: 1, name: 'USD'}]}));
       case 2187: return send(2188, wrap({moneyDigits: 2, positionUnrealizedPnL: []}));
       case 2124: return send(2125, wrap({position: state.positions, order: []}), true);
-      case 2114: return send(2115, wrap({symbol: [{symbolId: 1, symbolName: 'EURUSD', enabled: true}]}));
+      case 2114: return send(2115, wrap({symbol: [{symbolId: state.symbol.symbolId, symbolName: state.symbolName, enabled: state.symbolEnabled ?? true}]}));
       case 2116: return send(2117, wrap({symbol: [state.symbol]}));
       case 2139: return send(2140, wrap({moneyDigits: 2, margin: [{volume: p.volume[0], buyMargin: 300, sellMargin: 300}]}));
       case 2127: {
         send(2128, wrap({}));
         const ts = Date.now() + state.quoteOffset;
-        ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: 1, bid: 110000, timestamp: ts})}));
-        ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: 1, ask: Math.round((1.1 + state.spread) * 100000), timestamp: ts})}));
+        ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: state.symbol.symbolId, bid: Math.round(state.bid * 100000), timestamp: ts})}));
+        ws.send(JSON.stringify({payloadType: 2131, payload: wrap({symbolId: state.symbol.symbolId, ask: Math.round((state.bid + state.spread) * 100000), timestamp: ts})}));
         return;
       }
       case 2106: {
         if (state.mode === 'reject') return send(2132, wrap({errorCode: 'NOT_ENOUGH_MONEY', description: 'fixture-sensitive-description'}));
-        const position = {positionId: 71, positionStatus: 1, price: 1.1001,
+        const entry = p.tradeSide === 1 ? state.bid + state.spread : state.bid;
+        const direction = p.tradeSide === 1 ? 1 : -1;
+        const position = {positionId: 71, positionStatus: 1, price: entry,
           tradeData: {symbolId: p.symbolId, volume: p.volume, tradeSide: p.tradeSide, label: p.label},
-          stopLoss: p.tradeSide === 1 ? 1.0991 : 1.1011, takeProfit: p.tradeSide === 1 ? 1.1021 : 1.0981, usedMargin: 300, moneyDigits: 2};
+          stopLoss: entry - direction * p.relativeStopLoss / 100000,
+          takeProfit: entry + direction * p.relativeTakeProfit / 100000, usedMargin: 300, moneyDigits: 2};
         if (state.mode === 'no-protection') delete position.stopLoss;
         if (state.mode === 'wrong-protection') position.stopLoss -= 0.005;
         state.positions = [position];

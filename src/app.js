@@ -11,7 +11,7 @@ const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 function route(method, url) {
   const path = url.pathname;
   if (method === 'GET') {
-    const simple = {'/ready': 'ready', '/v1/demo/account': 'account', '/v1/demo/positions': 'positions',
+    const simple = {'/ready': 'ready', '/v1/demo/capabilities': 'capabilities', '/v1/demo/account': 'account', '/v1/demo/positions': 'positions',
       '/v1/demo/orders': 'orders', '/v1/demo/symbols': 'symbols', '/v1/demo/deals': 'deals',
       '/v1/demo/order-history': 'order-history', '/v1/demo/operations': 'operations'};
     if (simple[path]) return {kind: simple[path], args: {}};

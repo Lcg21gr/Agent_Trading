@@ -20,6 +20,8 @@ Referencia oficial consultada: https://www.hostinger.com/support/hostinger-node-
 
 ## Diagnóstico del inicio
 
+Para admitir todos los mercados del bróker, publicar la versión con soporte de comodín y configurar `ALLOWED_SYMBOLS=*` en hPanel. Conservar el resto de variables operativas. Tras reiniciar, `/v1/demo/capabilities` debe devolver `allBrokerSymbols: true`; `/ready` sigue verificando conexión y persistencia. La guía [markets.md](markets.md) explica los filtros por instrumento. Cambiar únicamente el entorno sin publicar el código con soporte de `*` causará un error de configuración en versiones anteriores.
+
 El build correcto comprueba sintaxis; no demuestra disponibilidad del proceso de producción ni conectividad con cTrader. La suite incluye pruebas reales de proceso que ejecutan el punto de entrada directamente y mediante cargadores ESM/CommonJS, con un `.env` ficticio y sin credenciales de producción.
 
 Al iniciar correctamente, los registros muestran `{"event":"api_listening",...}`. Si falla, muestran `{"event":"api_start_failed","code":"..."}`. Los códigos `CONFIG_*` identifican la validación de configuración que falló; `EADDRINUSE`, `EACCES` y `EADDRNOTAVAIL` distinguen fallos al abrir el puerto. No se registran valores de las variables ni errores remotos completos.
