@@ -4,7 +4,7 @@ import {WebSocketServer} from 'ws';
 import {config} from '../../src/config.js';
 import {DemoClient, withDemo} from '../../src/ctrader.js';
 import {TradingService} from '../../src/trading.js';
-import {createServer} from '../../src/server.js';
+import {createServer} from '../../src/app.js';
 import {ApiError} from '../../src/errors.js';
 
 export const env = {API_KEY: 'r'.repeat(40), TRADING_API_KEY: 'w'.repeat(40),

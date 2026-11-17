@@ -13,7 +13,7 @@
     "check:connection": "node --env-file-if-exists=.env scripts/check-connection.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/db-migrate.js",
     "token:refresh": "node --env-file-if-exists=.env scripts/refresh-token.js",
-    "check:syntax": "node --check src/server.js && node --check src/ctrader.js && node --check src/trading.js && node --check src/store.js"
+    "check:syntax": "node --check src/server.js && node --check src/app.js && node --check src/config.js && node --check src/ctrader.js && node --check src/trading.js && node --check src/store.js"
   },
   "dependencies": {
     "mysql2": "^3.24.6"

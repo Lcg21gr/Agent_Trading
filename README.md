@@ -4,6 +4,8 @@ API HTTP en Node.js para consumir cTrader desde un backend, n8n, scripts u otro 
 
 El contrato consumible está en [docs/openapi.json](docs/openapi.json), con los detalles de reintentos, unidades y respuestas en [docs/api-contract.md](docs/api-contract.md). La guía para el plan Business está en [docs/hostinger-business.md](docs/hostinger-business.md). Hay una colección de peticiones sin secretos en [postman/README.md](postman/README.md).
 
+El punto de entrada de producción es `src/server.js`; inicia la API tanto con `npm start` como al importarlo desde el cargador del alojamiento. `src/app.js` contiene la aplicación HTTP para pruebas y reutilización, sin iniciar un servidor al importarse.
+
 ## Inicio local
 
 Requiere Node.js 22.13 o posterior y npm. Las consultas pueden funcionar sin base de datos. La ejecución y su registro requieren una base MySQL dedicada.

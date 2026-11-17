@@ -2,6 +2,8 @@
 
 La aplicación está preparada para el hosting Node.js de Business: un proceso HTTP, conexiones WebSocket salientes breves hacia cTrader y MySQL. No requiere Docker, Redis, un VPS ni un worker continuo. Hostinger publica un timeout por solicitud de 120 segundos; el transporte tiene un plazo total de 80 segundos, más las escrituras acotadas a MySQL.
 
+`src/server.js` es el punto de entrada de producción: inicia el servidor al ejecutarse directamente o al cargarse mediante `import`/`require` por un proceso del alojamiento. Lee el `.env` situado en la raíz del proyecto y conserva los valores que Hostinger haya suministrado al proceso. La implementación HTTP reutilizable está en `src/app.js`, que puede importarse sin abrir un puerto.
+
 1. Crear una **base MySQL dedicada** y un usuario desde hPanel. Guardar host, nombre, usuario y contraseña en las variables privadas `MYSQL_*` de la aplicación Node.js. Usar el host de base indicado por hPanel. Para una base remota, usar TLS verificado mediante `MYSQL_SSL_CA` y la configuración autorizada por el proveedor.
 2. Crear o conectar la aplicación Node.js al repositorio. Seleccionar Node.js 22.13 o posterior (22 o 24 actualizado), tipo de aplicación `Other`, entrada `src/server.js`, comando de build `npm run build`, directorio de salida vacío/`none` y comando de inicio `npm start`. Es JavaScript ejecutado directamente: no necesita generar un directorio `dist`. El build comprueba la sintaxis y no conecta con MySQL ni cTrader. Ejecutar `npm run db:migrate` por separado en el entorno desplegado para crear las dos tablas propias de forma idempotente. La base debe ser dedicada; la migración conserva datos y no cambia tablas ajenas.
 3. Añadir las variables de `.env.example` en hPanel y completar sus valores privados desde el `.env` local. No subir los TXT originales ni colocar `.env` dentro de `public_html`. Conservar el `PORT` que proporciona Hostinger; no fijar un puerto de escucha adicional. Iniciar con `TRADING_ENABLED=false`.
@@ -15,3 +17,11 @@ No se mantiene un bot entre peticiones. Las protecciones verificadas permanecen 
 Desde un servidor de confianza se pueden guardar las claves de API en el gestor de secretos del cliente. Para n8n, usar credenciales privadas de su nodo HTTP y reutilizar la clave de idempotencia de la misma instrucción en los reintentos. Para una web pública, pasar por un backend que autentique al usuario; no exponer la clave de trading en el navegador.
 
 Referencia oficial consultada: https://www.hostinger.com/support/hostinger-node-js-limits-for-web-and-cloud-plans/ . Protocolo del broker: https://help.ctrader.com/open-api/proxies-endpoints/ y https://help.ctrader.com/open-api/messages/ .
+
+## Diagnóstico del inicio
+
+El build correcto comprueba sintaxis; no demuestra disponibilidad del proceso de producción ni conectividad con cTrader. La suite incluye pruebas reales de proceso que ejecutan el punto de entrada directamente y mediante cargadores ESM/CommonJS, con un `.env` ficticio y sin credenciales de producción.
+
+Al iniciar correctamente, los registros muestran `{"event":"api_listening",...}`. Si falla, muestran `{"event":"api_start_failed","code":"..."}`. Los códigos `CONFIG_*` identifican la validación de configuración que falló; `EADDRINUSE`, `EACCES` y `EADDRNOTAVAIL` distinguen fallos al abrir el puerto. No se registran valores de las variables ni errores remotos completos.
+
+Si el despliegue termina pero `/health` devuelve 503, revisar los registros de ejecución o `domains/talentouniversal.online/hbuilds/current/nodejs/stderr.log`. `/health` funciona sin consultar MySQL ni cTrader; un 503 HTML en esa ruta no confirma un fallo de esas integraciones. Verificar primero que Hostinger esté usando el commit corregido y la entrada `src/server.js`.
