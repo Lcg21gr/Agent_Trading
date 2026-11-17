@@ -10,6 +10,7 @@ Requiere Node.js 22.13 o posterior y npm. Las consultas pueden funcionar sin bas
 
 ```sh
 npm ci
+npm run build
 npm test
 npm run check:syntax
 npm run check:connection
