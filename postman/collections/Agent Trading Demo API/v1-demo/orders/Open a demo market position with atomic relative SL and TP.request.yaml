@@ -1,0 +1,29 @@
+{
+  "$kind": "http-request",
+  "method": "POST",
+  "url": "{{baseUrl}}/v1/demo/orders",
+  "description": "Open a demo market position with atomic relative SL and TP",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Idempotency-Key": "{{idempotencyKey}}"
+  },
+  "order": 2000,
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{tradingToken}}"
+    }
+  },
+  "body": {
+    "type": "json",
+    "content": "{\n  \"symbol\": \"EURUSD\",\n  \"side\": \"BUY\",\n  \"volume\": \"1000\",\n  \"stopLossPips\": \"10\",\n  \"takeProfitPips\": \"20\"\n}"
+  },
+  "scripts": [
+    {
+      "type": "beforeRequest",
+      "language": "text/javascript",
+      "code": "if (pm.variables.get('enableTrading') !== 'true') { pm.execution.skipRequest(); }"
+    }
+  ]
+}

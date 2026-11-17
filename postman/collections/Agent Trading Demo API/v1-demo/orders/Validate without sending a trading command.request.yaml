@@ -1,0 +1,21 @@
+{
+  "$kind": "http-request",
+  "method": "POST",
+  "url": "{{baseUrl}}/v1/demo/orders/preview",
+  "description": "Validate without sending a trading command",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+  },
+  "order": 3000,
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  },
+  "body": {
+    "type": "json",
+    "content": "{\n  \"symbol\": \"EURUSD\",\n  \"side\": \"BUY\",\n  \"volume\": \"1000\",\n  \"stopLossPips\": \"10\",\n  \"takeProfitPips\": \"20\"\n}"
+  }
+}

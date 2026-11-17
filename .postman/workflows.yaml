@@ -1,0 +1,4 @@
+workflows:
+  syncSpecToCollection:
+    - spec: ../docs/openapi.json
+      collection: ../postman/collections/Agent Trading Demo API

@@ -1,0 +1,22 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "url": "{{baseUrl}}/v1/demo/operations/:operationId",
+  "description": "Read a persisted instruction",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "order": 1000,
+  "pathVariables": [
+    {
+      "key": "operationId",
+      "value": "00000000-0000-4000-8000-000000000000"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  }
+}

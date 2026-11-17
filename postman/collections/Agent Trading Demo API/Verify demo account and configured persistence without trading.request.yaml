@@ -1,0 +1,16 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "url": "{{baseUrl}}/ready",
+  "description": "Verify demo account and configured persistence without trading",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "order": 2000,
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  }
+}

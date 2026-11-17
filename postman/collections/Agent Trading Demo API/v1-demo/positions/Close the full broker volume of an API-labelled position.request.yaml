@@ -1,0 +1,35 @@
+{
+  "$kind": "http-request",
+  "method": "POST",
+  "url": "{{baseUrl}}/v1/demo/positions/:positionId/close",
+  "description": "Close the full broker volume of an API-labelled position",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "Idempotency-Key": "{{idempotencyKey}}"
+  },
+  "order": 2000,
+  "pathVariables": [
+    {
+      "key": "positionId",
+      "value": "1"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{tradingToken}}"
+    }
+  },
+  "body": {
+    "type": "json",
+    "content": "{}"
+  },
+  "scripts": [
+    {
+      "type": "beforeRequest",
+      "language": "text/javascript",
+      "code": "if (pm.variables.get('enableTrading') !== 'true') { pm.execution.skipRequest(); }"
+    }
+  ]
+}

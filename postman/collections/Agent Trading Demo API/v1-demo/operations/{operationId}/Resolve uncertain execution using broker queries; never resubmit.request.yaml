@@ -1,0 +1,34 @@
+{
+  "$kind": "http-request",
+  "method": "POST",
+  "url": "{{baseUrl}}/v1/demo/operations/:operationId/reconcile",
+  "description": "Resolve uncertain execution using broker queries; never resubmits",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+  },
+  "order": 2000,
+  "pathVariables": [
+    {
+      "key": "operationId",
+      "value": "00000000-0000-4000-8000-000000000000"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{tradingToken}}"
+    }
+  },
+  "body": {
+    "type": "json",
+    "content": "{}"
+  },
+  "scripts": [
+    {
+      "type": "beforeRequest",
+      "language": "text/javascript",
+      "code": "if (pm.variables.get('enableTrading') !== 'true') { pm.execution.skipRequest(); }"
+    }
+  ]
+}

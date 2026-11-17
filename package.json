@@ -1,0 +1,23 @@
+{
+  "name": "agent-trading-demo-api",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --test test/*.test.js",
+    "check:connection": "node --env-file-if-exists=.env scripts/check-connection.js",
+    "db:migrate": "node --env-file-if-exists=.env scripts/db-migrate.js",
+    "token:refresh": "node --env-file-if-exists=.env scripts/refresh-token.js",
+    "check:syntax": "node --check src/server.js && node --check src/ctrader.js && node --check src/trading.js && node --check src/store.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.6"
+  },
+  "devDependencies": {
+    "ws": "^8.23.0"
+  }
+}

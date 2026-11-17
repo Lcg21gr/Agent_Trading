@@ -1,0 +1,11 @@
+{
+  "$kind": "collection",
+  "description": "Generated from docs/openapi.json; private token values are supplied at runtime. Trading requests are skipped unless enableTrading is explicitly true.",
+  "variables": {
+    "baseUrl": "http://localhost:3000",
+    "bearerToken": "",
+    "tradingToken": "",
+    "enableTrading": "false",
+    "idempotencyKey": ""
+  }
+}

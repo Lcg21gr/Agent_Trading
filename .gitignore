@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*credenciales*.txt
+*credentials*.txt
+*.log
+.DS_Store
+*Credenciales*.txt
+*Credentials*.txt
+coverage/
+.local/
+postman/reports/
+postman/.dependencies/
+*.ndjson

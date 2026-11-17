@@ -1,0 +1,13 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "url": "{{baseUrl}}/health",
+  "description": "HTTP health; does not verify cTrader",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "order": 1000,
+  "auth": {
+    "type": "noauth"
+  }
+}

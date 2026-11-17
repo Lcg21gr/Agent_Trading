@@ -1,0 +1,40 @@
+# Contrato de la API cTrader demo
+
+La API recibe instrucciones explícitas del consumidor; no decide estrategias ni opera por temporizador. Solo admite la cuenta demo configurada. Las credenciales OAuth nunca se entregan al consumidor.
+
+Autenticación: `Authorization: Bearer <API_KEY>` para consultas y `Authorization: Bearer <TRADING_API_KEY>` para ejecución. La clave de ejecución también puede consultar. Las escrituras requieren `Content-Type: application/json`. Abrir y cerrar requieren `Idempotency-Key` (16–100 caracteres ASCII: letras, números, `_`, `-`). Repetir la clave y el mismo cuerpo recupera el registro original; otro cuerpo devuelve 409. Las claves se conservan en MySQL y no vencen automáticamente.
+
+| Método | Ruta | Comportamiento |
+|---|---|---|
+| GET | `/health` | Estado HTTP público; no prueba conexión al broker |
+| GET | `/ready` | Comprueba MySQL, autenticación y cuenta demo, sin enviar órdenes |
+| GET | `/v1/demo/account` | Cuenta, saldo, divisa y PnL flotante |
+| GET | `/v1/demo/positions` | Posiciones abiertas y órdenes pendientes |
+| GET | `/v1/demo/orders` | Órdenes pendientes |
+| GET | `/v1/demo/symbols` | Catálogo del broker |
+| GET | `/v1/demo/symbols/{id}` | Restricciones de volumen, precisión y horario |
+| GET | `/v1/demo/symbols/{id}/quote` | Bid/ask con timestamp fresco del broker |
+| GET | `/v1/demo/deals` | Ejecuciones históricas, comisiones y cierres |
+| GET | `/v1/demo/order-history` | Historial de órdenes del broker |
+| GET | `/v1/demo/operations?limit=50` | Registro persistente de instrucciones de esta API |
+| GET | `/v1/demo/operations/{id}` | Estado de una instrucción |
+| POST | `/v1/demo/orders/preview` | Valida volumen, protecciones, exposición, spread y margen sin operar |
+| POST | `/v1/demo/orders` | Abre MARKET con SL y TP relativos en el mismo mensaje |
+| POST | `/v1/demo/positions/{id}/close` | Cierra completamente una posición creada por esta API; cuerpo `{}` |
+| POST | `/v1/demo/operations/{id}/reconcile` | Consulta el broker para resolver un resultado incierto; nunca reenvía la orden |
+
+Apertura y preview comparten exactamente este cuerpo (no se aceptan campos adicionales):
+
+```json
+{"symbol":"EURUSD","side":"BUY","volume":"1000","stopLossPips":"10","takeProfitPips":"20"}
+```
+
+`volume` son unidades del instrumento, como cadena decimal de hasta dos decimales, no lotes. Los pips se convierten usando `pipPosition` del broker. BUY/SELL en mayúsculas. El símbolo debe aparecer en `ALLOWED_SYMBOLS`. Las operaciones se identifican mediante UUID y `clientOrderId`; la etiqueta `ORDER_LABEL` identifica las posiciones gestionadas por esta instalación.
+
+Historial: `from` y `to` son timestamps Unix en milisegundos (cadenas enteras), ventana máxima 7 días, por defecto últimas 24 horas. `limit` (1–1000, por defecto 100) solo para deals. Se devuelve `hasMore` del broker; la API no afirma que un bloque truncado sea el historial completo. Para retroceder, el consumidor consulta intervalos anteriores, conservando y deduplicando por dealId/orderId los límites inclusivos.
+
+Respuestas de envío: `{operationId, status, result?, error?}`. `completed` exige llenado y comprobación posterior. `rejected` significa validación fallida antes del envío o rechazo definitivo del broker. `uncertain`/`sent`/`reserved` no autorizan un nuevo intento: consultar el registro y conciliar. Un timeout después de enviar devuelve 202 y bloquea nuevas aperturas de la cuenta. El cierre de posiciones propias sigue disponible para reducir exposición. La aceptación de una orden no se anuncia como ejecución.
+
+Errores: 400 parámetros/JSON inválidos; 401 sin autenticación; 403 clave sin permiso o trading deshabilitado; 404 recurso/ruta inexistente; 409 idempotencia incompatible o ejecución pendiente; 413 cuerpo >8 KiB; 415 tipo incorrecto; 422 regla de operación incumplida; 429 ocupado/límite; 502 error del broker; 503 persistencia no disponible. Nunca se devuelven textos remotos ni secretos. Los errores conocidos incluyen `requestId` para correlación.
+
+Las aperturas requieren cuenta HEDGED, acceso de trading OAuth y del broker, sin órdenes pendientes, límite total de posiciones de cuenta y margen libre con reserva. SL/TP no garantizan un precio de cierre ni una pérdida máxima. La validación y preview son instantáneos: otros clientes pueden modificar la cuenta entre verificaciones. Se deben usar cuenta y etiqueta exclusivas para esta API. No se amplía automáticamente a cuentas reales.

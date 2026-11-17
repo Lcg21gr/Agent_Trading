@@ -1,0 +1,16 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "url": "{{baseUrl}}/v1/demo/deals",
+  "description": "Executions and closing details; preserve hasMore when paginating",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "order": 5000,
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  }
+}
