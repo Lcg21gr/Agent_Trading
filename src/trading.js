@@ -1,13 +1,14 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {ApiError, BrokerRejection, requireValue} from './errors.js';
 import {withDemo, querySession, isEnum} from './ctrader.js';
-import {fixed, orderBody} from './validation.js';
+import {fixed, orderBody, agentId, agentStateBody} from './validation.js';
 import {symbolLimits, symbolAllowed} from './symbol-limits.js';
 import {DemoReadSession} from './read-session.js';
 
 const safeInteger = (value) => Number.isSafeInteger(Number(value));
 const publicOperation = (op) => ({operationId: op.id, kind: op.kind, status: op.status,
-  createdAt: op.createdAt, updatedAt: op.updatedAt, result: op.result});
+  createdAt: op.createdAt, updatedAt: op.updatedAt, result: op.result,
+  ...(op.body?.agentId ? {agentId: op.body.agentId} : {})});
 const uncertain = (op) => ['reserved', 'sent', 'uncertain'].includes(op.status);
 
 function protectionsMatch(position, side, preview) {
@@ -147,6 +148,15 @@ export class TradingService {
         return this.session(this.cfg, fn, {tokenStore: store});
       };
       if (kind === 'operations') return {data: {operations: (await store.list(args.limit)).map(publicOperation)}};
+      if (kind === 'agent-state') {
+        const state = await store.getAgentState(agentId(args.agentId));
+        requireValue(state, 'AGENT_STATE_NOT_FOUND', 404);
+        return {data: state};
+      }
+      if (kind === 'save-agent-state') {
+        agentStateBody(body);
+        return {data: await store.saveAgentState(agentId(args.agentId), body.expectedVersion, body.state)};
+      }
       if (kind === 'operation') {
         const op = await store.get(args.id);
         requireValue(op, 'OPERATION_NOT_FOUND', 404);
@@ -167,7 +177,7 @@ export class TradingService {
         return {data: await querySession(this.cfg, s, kind, args)};
       });
     };
-    const needsStore = ['open', 'close', 'reconcile', 'operations', 'operation'].includes(kind);
+    const needsStore = ['open', 'close', 'reconcile', 'operations', 'operation', 'agent-state', 'save-agent-state'].includes(kind);
     requireValue(!needsStore || this.store, 'PERSISTENCE_REQUIRED', 503);
     if (['open', 'close'].includes(kind)) requireValue(this.cfg.tradingEnabled, 'TRADING_DISABLED', 403);
     if (this.store) return this.store.withLock(action);
@@ -176,7 +186,8 @@ export class TradingService {
 
   async execute(store, session, kind, args, body, key) {
     requireValue(typeof key === 'string' && /^[A-Za-z0-9_-]{16,100}$/.test(key), 'IDEMPOTENCY_KEY_REQUIRED', 400);
-    const commandBody = kind === 'close' ? {positionId: args.positionId} : body;
+    const commandBody = {...(kind === 'close' ? {positionId: args.positionId} : body),
+      ...(args.agentId !== undefined ? {agentId: agentId(args.agentId)} : {})};
     const fp = fingerprint(kind, commandBody);
     const existing = await store.findByKey(key);
     if (existing) {

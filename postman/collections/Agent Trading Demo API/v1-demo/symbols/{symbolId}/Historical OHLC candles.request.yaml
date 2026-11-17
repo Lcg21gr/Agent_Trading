@@ -1,0 +1,38 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  },
+  "url": "{{baseUrl}}/v1/demo/symbols/:symbolId/candles?period={{candlePeriod}}&limit={{candleLimit}}",
+  "order": 3000,
+  "pathVariables": [
+    {
+      "key": "symbolId",
+      "value": "{{historySymbolId}}"
+    }
+  ],
+  "queryParams": [
+    {
+      "key": "period",
+      "value": "{{candlePeriod}}"
+    },
+    {
+      "key": "limit",
+      "value": "{{candleLimit}}"
+    }
+  ],
+  "scripts": [
+    {
+      "type": "afterResponse",
+      "language": "text/javascript",
+      "code": "pm.test('Historical candles respond 200', () => pm.response.to.have.status(200));\npm.test('Candles preserve price and volume units', () => {\n const b = pm.response.json();\n pm.expect(b.candles).to.be.an('array');\n pm.expect(b.candles.length).to.be.at.most(b.limit);\n b.candles.forEach((c, i) => {\n  ['open','high','low','close'].forEach(k => pm.expect(c[k]).to.match(/^-?[0-9]+\\.[0-9]{5}$/));\n  pm.expect(c.tickVolume).to.match(/^[0-9]+$/);\n  if (i) pm.expect(c.openTime).to.be.above(b.candles[i-1].openTime);\n });\n});"
+    }
+  ]
+}

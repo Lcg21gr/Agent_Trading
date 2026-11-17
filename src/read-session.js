@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import {DemoClient, authenticateDemo} from './ctrader.js';
 import {requireValue} from './errors.js';
 
-const reads = new Set([2121, 2124, 2114, 2116, 2112, 2133, 2175, 2139, 2187]);
+const reads = new Set([2121, 2124, 2114, 2116, 2112, 2133, 2175, 2137, 2139, 2187]);
 const identity = (tokens) => createHash('sha256').update(JSON.stringify([tokens.accessToken, tokens.refreshToken, tokens.expiresAt ?? null])).digest('hex');
 
 // One process-local, read-only session for one configured demo account. Tokens

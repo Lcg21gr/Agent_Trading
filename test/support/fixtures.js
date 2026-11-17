@@ -19,7 +19,7 @@ export const symbol = {symbolId: 1, minVolume: 100000, maxVolume: 100000000, ste
 
 // Deliberately test-only. Production writes always require MySQL.
 export class MemoryStore {
-  constructor() { this.ops = new Map(); this.tokens = null; this.busy = false; }
+  constructor() { this.ops = new Map(); this.tokens = null; this.busy = false; this.agentStates = new Map(); }
   async withLock(fn) {
     if (this.busy) throw new ApiError('ACCOUNT_BUSY', 429);
     this.busy = true;
@@ -34,6 +34,13 @@ export class MemoryStore {
   async getTokens() { return this.tokens; }
   async setTokens(tokens) { this.tokens = tokens; }
   async check() {}
+  async getAgentState(id) { return structuredClone(this.agentStates.get(id) ?? null); }
+  async saveAgentState(id, version, state) {
+    if ((this.agentStates.get(id)?.version ?? 0) !== version) throw new ApiError('AGENT_STATE_VERSION_CONFLICT', 409);
+    const record = {agentId: id, version: version + 1, state: structuredClone(state), updatedAt: Date.now()};
+    this.agentStates.set(id, record);
+    return structuredClone(record);
+  }
 }
 
 export async function fixture(t, options = {}) {
@@ -115,6 +122,7 @@ export async function fixture(t, options = {}) {
         }
         case 2175: return send(2176, wrap({order: state.history, hasMore: false}));
         case 2133: return send(2134, wrap({deal: [], hasMore: false}));
+        case 2137: return send(2138, wrap({period: p.period, symbolId: p.symbolId, trendbar: state.trendbars || [], hasMore: state.historyHasMore ?? false, ...state.candleResponse}));
         case 2173: return send(2174, {accessToken: 'fixture-renewed', refreshToken: 'fixture-new-refresh', expiresIn: 3600, tokenType: 'bearer'});
         default: throw new Error(`Unexpected fixture message ${m.payloadType}`);
       }

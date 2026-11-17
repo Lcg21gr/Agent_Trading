@@ -2,7 +2,8 @@ import http from 'node:http';
 import {createHash, timingSafeEqual, randomUUID} from 'node:crypto';
 import {TradingService} from './trading.js';
 import {ApiError, requireValue} from './errors.js';
-import {exactFields, orderBody, positiveId, historyParams, readJson} from './validation.js';
+import {exactFields, orderBody, positiveId, historyParams, readJson, agentId, agentStateBody} from './validation.js';
+import {candleParams} from './candles.js';
 
 const hash = (x) => createHash('sha256').update(x).digest();
 const matchesKey = (header, key) => key && timingSafeEqual(hash(header || ''), hash(`Bearer ${key}`));
@@ -15,10 +16,14 @@ function route(method, url) {
       '/v1/demo/orders': 'orders', '/v1/demo/symbols': 'symbols', '/v1/demo/deals': 'deals',
       '/v1/demo/order-history': 'order-history', '/v1/demo/operations': 'operations'};
     if (simple[path]) return {kind: simple[path], args: {}};
-    const symbol = path.match(/^\/v1\/demo\/symbols\/(\d+)(\/quote)?$/);
-    if (symbol) return {kind: symbol[2] ? 'quote' : 'symbol', args: {symbolId: positiveId(symbol[1])}};
+    const symbol = path.match(/^\/v1\/demo\/symbols\/(\d+)(?:\/(quote|candles))?$/);
+    if (symbol) return {kind: symbol[2] || 'symbol', args: {symbolId: positiveId(symbol[1])}};
     const op = path.match(new RegExp(`^/v1/demo/operations/(${uuid})$`));
     if (op) return {kind: 'operation', args: {id: op[1]}};
+  }
+  if (method === 'GET' || method === 'PUT') {
+    const state = path.match(/^\/v1\/demo\/agents\/([^/]+)\/state$/);
+    if (state) return {kind: method === 'GET' ? 'agent-state' : 'save-agent-state', args: {agentId: agentId(state[1])}, trade: method === 'PUT'};
   }
   if (method === 'POST') {
     if (path === '/v1/demo/orders') return {kind: 'open', args: {}, trade: true};
@@ -52,8 +57,8 @@ export function createServer(cfg, service = new TradingService(cfg)) {
       requireValue(!origin || cfg.origins.includes(origin), 'ORIGIN_NOT_ALLOWED', 403);
       if (req.method === 'OPTIONS') {
         requireValue(origin && cfg.origins.includes(origin), 'ORIGIN_NOT_ALLOWED', 403);
-        res.writeHead(204, {...cors, 'access-control-allow-methods': 'GET,POST,OPTIONS',
-          'access-control-allow-headers': 'Authorization,Content-Type,Idempotency-Key', 'access-control-max-age': '600'});
+        res.writeHead(204, {...cors, 'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
+          'access-control-allow-headers': 'Authorization,Content-Type,Idempotency-Key,X-Agent-Id', 'access-control-max-age': '600'});
         res.end(); return;
       }
       const tradeAuth = matchesKey(req.headers.authorization, cfg.tradingKey);
@@ -62,20 +67,23 @@ export function createServer(cfg, service = new TradingService(cfg)) {
       const selected = route(req.method, url);
       requireValue(!selected.trade || tradeAuth, 'TRADING_KEY_REQUIRED', 403);
       if (['deals', 'order-history'].includes(selected.kind)) selected.args = historyParams(url.searchParams, selected.kind);
+      else if (selected.kind === 'candles') selected.args = {...selected.args, ...candleParams(url.searchParams)};
       else if (selected.kind === 'operations') {
         const limit = url.searchParams.get('limit') || '50';
         requireValue([...url.searchParams.keys()].every((k) => k === 'limit') && url.searchParams.getAll('limit').length <= 1 && /^[1-9]\d{0,2}$/.test(limit) && Number(limit) <= 100, 'INVALID_LIMIT', 400);
         selected.args.limit = Number(limit);
       } else requireValue(!url.search, 'INVALID_QUERY', 400);
+      if (['open', 'close'].includes(selected.kind) && req.headers['x-agent-id'] !== undefined) selected.args.agentId = agentId(req.headers['x-agent-id']);
       requireValue(!busy && Date.now() - last >= cfg.requestIntervalMs, 'BUSY_OR_RATE_LIMITED', 429);
       // Reserve before reading the body to prevent concurrent submissions in this process.
       busy = true;
       last = Date.now();
       try {
         let body = null;
-        if (req.method === 'POST') {
+        if (req.method === 'POST' || req.method === 'PUT') {
           body = await readJson(req);
           if (['open', 'preview'].includes(selected.kind)) orderBody(body);
+          else if (selected.kind === 'save-agent-state') agentStateBody(body);
           else exactFields(body, []);
         }
         const result = await service.handle(selected.kind, selected.args, body, req.headers['idempotency-key']);

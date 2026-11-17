@@ -24,6 +24,14 @@ export const MYSQL_SCHEMA = [
     encrypted_tokens TEXT NOT NULL,
     updated_ms BIGINT NOT NULL
   ) ENGINE=InnoDB`,
+  `CREATE TABLE IF NOT EXISTS trading_api_agent_states (
+    namespace CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    agent_id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    version BIGINT UNSIGNED NOT NULL,
+    state_json LONGTEXT CHARACTER SET utf8mb4 NOT NULL,
+    updated_ms BIGINT NOT NULL,
+    PRIMARY KEY (namespace, agent_id)
+  ) ENGINE=InnoDB`,
 ];
 
 const databaseErrors = new Map([
@@ -114,9 +122,34 @@ export class MysqlStore {
           await run('INSERT INTO trading_api_tokens(namespace,encrypted_tokens,updated_ms) VALUES (?,?,?) ON DUPLICATE KEY UPDATE encrypted_tokens=VALUES(encrypted_tokens),updated_ms=VALUES(updated_ms)',
             [ns, sealTokens(tokens, this.key, ns), Date.now()]);
         },
+        getAgentState: async (agentId) => {
+          const row = (await run('SELECT agent_id,version,state_json,updated_ms FROM trading_api_agent_states WHERE namespace=? AND agent_id=?', [ns, agentId]))[0];
+          if (!row) return null;
+          const version = Number(row.version);
+          const updatedAt = Number(row.updated_ms);
+          const state = JSON.parse(row.state_json);
+          requireValue(Number.isSafeInteger(version) && version > 0 && Number.isSafeInteger(updatedAt) && updatedAt >= 0 && state && typeof state === 'object' && !Array.isArray(state), 'PERSISTENCE_INVALID_AGENT_STATE', 503);
+          return {agentId: row.agent_id, version, state, updatedAt};
+        },
+        saveAgentState: async (agentId, expectedVersion, state) => {
+          const json = JSON.stringify(state);
+          if (expectedVersion === 0) {
+            try {
+              await run('INSERT INTO trading_api_agent_states(namespace,agent_id,version,state_json,updated_ms) VALUES (?,?,1,?,?)', [ns, agentId, json, Date.now()]);
+            } catch (error) {
+              if (error.code === 'ER_DUP_ENTRY') throw new ApiError('AGENT_STATE_VERSION_CONFLICT', 409);
+              throw error;
+            }
+          } else {
+            const result = await run('UPDATE trading_api_agent_states SET version=version+1,state_json=?,updated_ms=? WHERE namespace=? AND agent_id=? AND version=?', [json, Date.now(), ns, agentId, expectedVersion]);
+            requireValue(result.affectedRows === 1, 'AGENT_STATE_VERSION_CONFLICT', 409);
+          }
+          return scoped.getAgentState(agentId);
+        },
         check: async () => {
           await run('SELECT id FROM trading_api_operations WHERE namespace=? LIMIT 1', [ns]);
           await run('SELECT namespace FROM trading_api_tokens WHERE namespace=? LIMIT 1', [ns]);
+          await run('SELECT agent_id FROM trading_api_agent_states WHERE namespace=? LIMIT 1', [ns]);
         },
       };
       return await action(scoped);

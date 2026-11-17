@@ -6,6 +6,11 @@
     "bearerToken": "",
     "tradingToken": "",
     "enableTrading": "false",
-    "idempotencyKey": ""
+    "idempotencyKey": "",
+    "historySymbolId": "1",
+    "candlePeriod": "M1",
+    "candleLimit": "200",
+    "agentId": "agent-demo",
+    "enableStateWrites": "false"
   }
 }

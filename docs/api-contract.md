@@ -15,6 +15,9 @@ Autenticación: `Authorization: Bearer <API_KEY>` para consultas y `Authorizatio
 | GET | `/v1/demo/symbols` | Catálogo del broker |
 | GET | `/v1/demo/symbols/{id}` | Restricciones de volumen, precisión y horario |
 | GET | `/v1/demo/symbols/{id}/quote` | Bid/ask con timestamp fresco del broker |
+| GET | `/v1/demo/symbols/{id}/candles` | Velas históricas OHLC y volumen de ticks; period/from/to/limit |
+| GET | `/v1/demo/agents/{agentId}/state` | Último estado JSON persistido del agente y su versión |
+| PUT | `/v1/demo/agents/{agentId}/state` | Guarda estado JSON con `TRADING_API_KEY` y control de versión; no opera |
 | GET | `/v1/demo/deals` | Ejecuciones históricas, comisiones y cierres |
 | GET | `/v1/demo/order-history` | Historial de órdenes del broker |
 | GET | `/v1/demo/operations?limit=50` | Registro persistente de instrucciones de esta API |
@@ -47,3 +50,7 @@ Las aperturas requieren cuenta HEDGED, acceso de trading OAuth y del broker, sin
 Las rutas, claves y cuerpos no cambian con la optimización de conexiones. Las consultas al bróker pueden reutilizar una sesión autenticada; cada consulta vuelve a solicitar sus datos. Una cotización activa puede usar el último evento recibido solo si ambas caras cumplen la antigüedad máxima de 10 segundos. `/ready` envía una consulta efectiva incluso con sesión reutilizada. Después de una desconexión, la solicitud actual falla y una solicitud posterior vuelve a autenticar; no hay repetición automática de la acción.
 
 Se conserva la separación mínima de un segundo entre solicitudes y la exclusión de cuenta. El resultado HTTP puede devolverse antes de completar la duración mínima del bloqueo MySQL, que se libera en segundo plano. No implica que el servidor ya admita otra solicitud: respetar 429 y `Retry-After`. Esta liberación no aplaza escrituras del registro ni la verificación del llenado. La aplicación espera las liberaciones pendientes al apagarse. Ver [performance.md](performance.md).
+
+Históricos y estado por agente se detallan en [agents-and-history.md](agents-and-history.md). Los históricos devuelven precios decimales y volumen de ticks como cadenas, orden cronológico y paginación hacia atrás, sin garantizar velas completas ni disponibilidad de un número exacto de barras. El estado usa `{expectedVersion,state}`; 0 crea, la versión actual actualiza y una versión atrasada devuelve 409. No contiene reglas de estrategia impuestas por el servidor. GET requiere clave de consulta o ejecución; PUT requiere la clave de ejecución y funciona con trading deshabilitado.
+
+Las aperturas y cierres admiten `X-Agent-Id` opcional, conservado en la identidad idempotente y el registro; sin esa cabecera, mantienen el comportamiento previo. El ID es atribución lógica del cliente, no una frontera de autorización. Las claves, la cuenta y las restricciones de operación son compartidas. El estado y la orden no se guardan como una única transacción; conservar la intención, clave de idempotencia y resultado para recuperarse conforme a la guía.

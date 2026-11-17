@@ -2,6 +2,8 @@
 
 API HTTP en Node.js para consumir cTrader desde un backend, n8n, scripts u otro cliente con HTTPS. Permite consultar cuenta, posiciones, órdenes, símbolos, cotizaciones e historial; validar una apertura; abrir posiciones de mercado con SL/TP; cerrar posiciones propias y conciliar ejecuciones inciertas. Solo acepta la cuenta **demo** configurada.
 
+También expone velas OHLC históricas y estado JSON persistente por agente con control de versiones, sin fijar estrategias ni presupuestos. Ver [históricos y agentes](docs/agents-and-history.md). Esta ampliación requiere crear la tabla nueva con [mysql-agent-states.sql](docs/mysql-agent-states.sql) antes de desplegarla sobre una instalación existente.
+
 El contrato consumible está en [docs/openapi.json](docs/openapi.json), con los detalles de reintentos, unidades y respuestas en [docs/api-contract.md](docs/api-contract.md). La guía para el plan Business está en [docs/hostinger-business.md](docs/hostinger-business.md). Hay una colección de peticiones sin secretos en [postman/README.md](postman/README.md).
 
 `ALLOWED_SYMBOLS=*` admite todos los instrumentos habilitados por el bróker para esa cuenta demo: divisas, criptomonedas, índices, metales, acciones u otros instrumentos de su catálogo. Incluye ADAUSD cuando está disponible. No conecta con otros exchanges ni habilita instrumentos que el bróker tenga desactivados. Ver [mercados y configuración](docs/markets.md).

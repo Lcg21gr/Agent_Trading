@@ -1,0 +1,33 @@
+{
+  "$kind": "http-request",
+  "method": "PUT",
+  "headers": {
+    "Accept": "application/json",
+    "Content-Type": "application/json"
+  },
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{tradingToken}}"
+    }
+  },
+  "url": "{{baseUrl}}/v1/demo/agents/:agentId/state",
+  "order": 2000,
+  "pathVariables": [
+    {
+      "key": "agentId",
+      "value": "{{agentId}}"
+    }
+  ],
+  "body": {
+    "type": "json",
+    "content": "{\n  \"expectedVersion\": 0,\n  \"state\": {\n    \"checkpoint\": {}\n  }\n}"
+  },
+  "scripts": [
+    {
+      "type": "beforeRequest",
+      "language": "text/javascript",
+      "code": "if (pm.variables.get('enableStateWrites') !== 'true') pm.execution.skipRequest();"
+    }
+  ]
+}

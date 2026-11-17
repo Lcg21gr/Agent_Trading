@@ -1,5 +1,5 @@
--- Primera inicializacion: ejecutar en la base dedicada configurada.
--- Conserva las tablas y los registros existentes; no ejecutar para sustituir historial perdido.
+-- Inicializacion idempotente de la base dedicada. Conserva las tablas y los registros existentes.
+-- No usar para sustituir un historial de operaciones perdido.
 
 CREATE TABLE IF NOT EXISTS trading_api_operations (
     id CHAR(36) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
@@ -21,4 +21,13 @@ CREATE TABLE IF NOT EXISTS trading_api_tokens (
     namespace CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
     encrypted_tokens TEXT NOT NULL,
     updated_ms BIGINT NOT NULL
+  ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS trading_api_agent_states (
+    namespace CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    agent_id VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    version BIGINT UNSIGNED NOT NULL,
+    state_json LONGTEXT CHARACTER SET utf8mb4 NOT NULL,
+    updated_ms BIGINT NOT NULL,
+    PRIMARY KEY (namespace, agent_id)
   ) ENGINE=InnoDB;

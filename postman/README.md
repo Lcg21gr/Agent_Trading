@@ -13,3 +13,5 @@ postman collection lint 'postman/collections/Agent Trading Demo API'
 ```
 
 La relación de generación está en `.postman/workflows.yaml`. Al regenerar, revisar los cambios y conservar las variables privadas vacías y el bloqueo explícito de ejecución. Los ejemplos genéricos autogenerados se eliminaron porque no representan ejecuciones verificadas.
+
+Las nuevas peticiones de históricos y estado reflejan `docs/openapi.json`. Configurar `historySymbolId`, `candlePeriod`, `candleLimit` y `agentId` según el catálogo y consumidor. Guardar un checkpoint está omitido por defecto y requiere `enableStateWrites=true` además de la clave de ejecución; revisar y actualizar `expectedVersion` antes de usarlo. No requiere habilitar trading en el servidor ni envía una orden.

@@ -1,0 +1,21 @@
+{
+  "$kind": "http-request",
+  "method": "GET",
+  "headers": {
+    "Accept": "application/json"
+  },
+  "auth": {
+    "type": "bearer",
+    "credentials": {
+      "token": "{{bearerToken}}"
+    }
+  },
+  "url": "{{baseUrl}}/v1/demo/agents/:agentId/state",
+  "order": 1000,
+  "pathVariables": [
+    {
+      "key": "agentId",
+      "value": "{{agentId}}"
+    }
+  ]
+}

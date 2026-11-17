@@ -80,3 +80,30 @@ test('MySQL minimum account lock outlives a fast response and shutdown waits for
     assert.equal(await second.withLock(async () => 'released'), 'released');
   } finally { await store.close(); await second.close(); }
 });
+
+test('agent JSON state persists across MySQL reconnect, separates agents and accounts, and atomically rejects stale versions', options, async () => {
+  const store = make();
+  const restarted = make();
+  const otherAccount = make();
+  restarted.namespace = store.namespace;
+  restarted.lockName = store.lockName;
+  try {
+    await store.migrate();
+    await store.withLock(async s => {
+      const state = {risk: {chosenByCaller: true}, intent: {idempotencyKey: 'agent_a_intent_001'}, custom: [1, 'two'], note: 'Análisis 📈'};
+      assert.deepEqual((await s.saveAgentState('agent-a', 0, state)).state, state);
+      await s.saveAgentState('Agent-a', 0, {distinct: true});
+      await assert.rejects(s.saveAgentState('agent-a', 0, {}), /AGENT_STATE_VERSION_CONFLICT/);
+    });
+    await store.close();
+    await restarted.withLock(async s => {
+      assert.equal((await s.getAgentState('agent-a')).state.intent.idempotencyKey, 'agent_a_intent_001');
+      assert.deepEqual((await s.getAgentState('Agent-a')).state, {distinct: true});
+      const results = await Promise.allSettled([1, 2].map(n => s.saveAgentState('agent-a', 1, {n})));
+      assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+      assert.match(results.find(r => r.status === 'rejected').reason.message, /AGENT_STATE_VERSION_CONFLICT/);
+      assert.equal((await s.getAgentState('agent-a')).version, 2);
+    });
+    assert.equal(await otherAccount.withLock(s => s.getAgentState('agent-a')), null);
+  } finally { await store.close(); await restarted.close(); await otherAccount.close(); }
+});

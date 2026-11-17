@@ -28,6 +28,18 @@ export function orderBody(body) {
   return body;
 }
 
+export function agentId(value) {
+  requireValue(typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(value), 'INVALID_AGENT_ID', 400);
+  return value;
+}
+
+export function agentStateBody(body) {
+  exactFields(body, ['expectedVersion', 'state']);
+  requireValue(Number.isSafeInteger(body.expectedVersion) && body.expectedVersion >= 0 && body.expectedVersion < Number.MAX_SAFE_INTEGER, 'INVALID_STATE_VERSION', 400);
+  requireValue(body.state && typeof body.state === 'object' && !Array.isArray(body.state), 'INVALID_AGENT_STATE', 400);
+  return body;
+}
+
 export function historyParams(search, kind, now = Date.now()) {
   const allowed = kind === 'deals' ? ['from', 'to', 'limit'] : ['from', 'to'];
   for (const [key] of search) requireValue(allowed.includes(key) && search.getAll(key).length === 1, 'INVALID_QUERY', 400);

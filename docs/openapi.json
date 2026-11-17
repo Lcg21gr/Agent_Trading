@@ -434,6 +434,16 @@
               "pattern": "^[A-Za-z0-9_-]{16,100}$"
             },
             "description": "Stable unique key for this instruction. Reuse this exact key and body after a timeout."
+          },
+          {
+            "name": "X-Agent-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional caller attribution. Included in durable operation identity; different agent IDs cannot reuse the same idempotency key. Not a separate permission boundary.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            }
           }
         ]
       }
@@ -1086,6 +1096,16 @@
               "pattern": "^[A-Za-z0-9_-]{16,100}$"
             },
             "description": "Stable unique key for this instruction. Reuse this exact key and body after a timeout."
+          },
+          {
+            "name": "X-Agent-Id",
+            "in": "header",
+            "required": false,
+            "description": "Optional caller attribution. Included in durable operation identity; different agent IDs cannot reuse the same idempotency key. Not a separate permission boundary.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            }
           }
         ],
         "requestBody": {
@@ -1198,6 +1218,258 @@
           }
         }
       }
+    },
+    "/v1/demo/symbols/{symbolId}/candles": {
+      "get": {
+        "operationId": "getCandles",
+        "summary": "Historical broker OHLC candles with tick volume",
+        "tags": [
+          "Queries"
+        ],
+        "security": [
+          {
+            "ReadKey": []
+          },
+          {
+            "TradingKey": []
+          }
+        ],
+        "description": "Read-only. Prices and tick volumes are decimal strings. Candles are sorted by opening time; gaps are not filled and the current bar may be incomplete. Use nextTo to page backwards with the same from and period. brokerHasMore preserves provider information; mayHaveMore is conservative when the count limit is reached.",
+        "parameters": [
+          {
+            "name": "symbolId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "M1",
+                "M2",
+                "M3",
+                "M4",
+                "M5",
+                "M10",
+                "M15",
+                "M30",
+                "H1",
+                "H4",
+                "H12",
+                "D1",
+                "W1",
+                "MN1"
+              ],
+              "default": "M1"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "Inclusive Unix milliseconds; nonnegative. Maximum window 3660 days. Default lookback depends on period and limit, with at least seven days.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Inclusive Unix milliseconds; defaults to now, cannot be in the future or exceed 2147483646000.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandleHistory"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
+    },
+    "/v1/demo/agents/{agentId}/state": {
+      "get": {
+        "operationId": "getAgentState",
+        "summary": "Read a persisted agent checkpoint",
+        "tags": [
+          "Queries"
+        ],
+        "security": [
+          {
+            "ReadKey": []
+          },
+          {
+            "TradingKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            }
+          }
+        ],
+        "description": "Latest JSON state and version for the account and agent ID. IDs are logical namespaces, not access-control boundaries. Returns 404 until first save. Does not call the broker.",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentState"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveAgentState",
+        "summary": "Save caller-defined agent state using optimistic concurrency",
+        "tags": [
+          "Queries"
+        ],
+        "security": [
+          {
+            "TradingKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "agentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            }
+          }
+        ],
+        "description": "Database write only; works with TRADING_ENABLED=false. expectedVersion=0 creates a state, otherwise the current version must match. Stale versions return 409; read and reconcile instead of overwriting. No trading rules, budget reservations or broker actions are inferred from state.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentStateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentState"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "429": {
+            "$ref": "#/components/responses/Error429"
+          },
+          "502": {
+            "$ref": "#/components/responses/Error502"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1286,6 +1558,10 @@
             "type": "object",
             "nullable": true,
             "additionalProperties": true
+          },
+          "agentId": {
+            "type": "string",
+            "description": "Optional caller-supplied X-Agent-Id attribution."
           }
         }
       },
@@ -1424,6 +1700,161 @@
             "enum": [
               "full_owned_position"
             ]
+          }
+        }
+      },
+      "Candle": {
+        "type": "object",
+        "required": [
+          "openTime",
+          "open",
+          "high",
+          "low",
+          "close",
+          "tickVolume"
+        ],
+        "properties": {
+          "openTime": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Opening timestamp in Unix milliseconds."
+          },
+          "open": {
+            "type": "string",
+            "description": "Exact price using five decimal places."
+          },
+          "high": {
+            "type": "string",
+            "description": "Exact price using five decimal places."
+          },
+          "low": {
+            "type": "string",
+            "description": "Exact price using five decimal places."
+          },
+          "close": {
+            "type": "string",
+            "description": "Exact price using five decimal places."
+          },
+          "tickVolume": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "Number of ticks, not instrument units or money."
+          }
+        }
+      },
+      "CandleHistory": {
+        "type": "object",
+        "required": [
+          "symbolId",
+          "period",
+          "range",
+          "limit",
+          "candles",
+          "brokerHasMore",
+          "mayHaveMore",
+          "nextTo"
+        ],
+        "properties": {
+          "environment": {
+            "type": "string",
+            "enum": [
+              "demo"
+            ]
+          },
+          "symbolId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "period": {
+            "type": "string"
+          },
+          "range": {
+            "type": "object",
+            "required": [
+              "from",
+              "to"
+            ],
+            "properties": {
+              "from": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "to": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "candles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Candle"
+            }
+          },
+          "brokerHasMore": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "mayHaveMore": {
+            "type": "boolean"
+          },
+          "nextTo": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        }
+      },
+      "AgentStateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expectedVersion",
+          "state"
+        ],
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 9007199254740990
+          },
+          "state": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Caller-defined JSON checkpoint; whole HTTP body is limited to 8 KiB. Store context, intent and risk data; no secrets."
+          }
+        }
+      },
+      "AgentState": {
+        "type": "object",
+        "required": [
+          "agentId",
+          "version",
+          "state",
+          "updatedAt"
+        ],
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "state": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       }

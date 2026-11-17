@@ -1,11 +1,12 @@
 import {randomUUID} from 'node:crypto';
 import {ApiError, BrokerRejection, requireValue} from './errors.js';
+import {normalizeCandles} from './candles.js';
 
 export const DEMO_URL = 'wss://demo.ctraderapi.com:5036';
 const responses = new Map([
   [2100, 2101], [2149, 2150], [2102, 2103], [2121, 2122], [2124, 2125],
   [2114, 2115], [2116, 2117], [2112, 2113], [2133, 2134], [2175, 2176],
-  [2139, 2140], [2187, 2188], [2127, 2128], [2129, 2130], [2173, 2174],
+  [2139, 2140], [2187, 2188], [2127, 2128], [2129, 2130], [2137, 2138], [2173, 2174],
   [2106, 2126], [2111, 2126],
 ]);
 const isEnum = (value, name, number) => value === name || value === number;
@@ -234,6 +235,11 @@ export async function querySession(cfg, session, kind, args = {}) {
   if (kind === 'symbols') return {...meta, symbols: (await request(2114, {includeArchivedSymbols: false})).symbol || []};
   if (kind === 'symbol') return {...meta, symbols: (await request(2116, {symbolId: [args.symbolId]})).symbol || []};
   if (kind === 'quote') return {...meta, quote: await client.quote(accountId, args.symbolId)};
+  if (kind === 'candles') {
+    const {symbolId, periodId, fromTimestamp, toTimestamp, count} = args;
+    const response = await request(2137, {symbolId, period: periodId, fromTimestamp, toTimestamp, count});
+    return {...meta, ...normalizeCandles(response, args)};
+  }
   if (kind === 'deals') {
     const r = await request(2133, args);
     return {...meta, deals: r.deal || [], hasMore: r.hasMore, range: args};

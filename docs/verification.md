@@ -1,5 +1,13 @@
 # Verificación técnica — 17 de noviembre de 2026
 
+## Históricos y estado de varios agentes
+
+- **63 pruebas aprobadas, sin omitidas**, con Node.js 22 y MySQL aislado real. Se verificaron velas por WebSocket simulado, conversión exacta de precios/deltas/volumen de ticks, rangos, periodos, autenticación, datos malformados, estados JSON, conflictos de versión, atribución de operaciones e idempotencia entre agentes. MySQL comprobó Unicode, separación por agente/cuenta, actualizaciones concurrentes y recuperación tras reconectar. La instancia temporal se detuvo y eliminó.
+- cTrader demo real: históricos de ADAUSD M1 y BTCUSD H1 con límite solicitado de 20; se devolvieron 19 barras normalizadas por consulta y paginación hacia atrás. Es una muestra de disponibilidad, no una garantía de 20 barras ni una recomendación de operación. Se bloqueó expresamente el envío de órdenes y la renovación de tokens en el cliente de verificación.
+- OpenAPI sin incidencias de sintaxis; colección Postman con **20 peticiones**, cero errores y advertencias. La prueba HTTP local de la petición de históricos usa el backend real y cTrader, con las aserciones del contrato guardadas en la colección.
+- Se añade una tabla para estados, sin modificar las de operaciones y tokens. Los presupuestos y reglas permanecen definidos por los consumidores. Una cabecera opcional atribuye órdenes a un ID; no crea credenciales ni aislamiento de permisos por agente.
+- Publicación en Hostinger pendiente: aplicar `docs/mysql-agent-states.sql`, desplegar el código y comprobar `/ready` y las rutas nuevas. Las pruebas locales no acreditan ese despliegue.
+
 ## Optimización de consultas
 
 - **54 pruebas aprobadas, sin omitidas**, con Node.js 22.23.5, MySQL real aislado y bróker WebSocket simulado. Se comprobó reutilización de lecturas, reemplazo de tokens, desconexión, revocación, caducidad, plazo total, cotizaciones frescas, autenticación nueva de escrituras y conservación de idempotencia. La prueba de MySQL confirma que el bloqueo sigue activo después de una respuesta rápida y que el apagado espera su liberación. La instancia temporal se detuvo y eliminó; no se usó la base productiva.
