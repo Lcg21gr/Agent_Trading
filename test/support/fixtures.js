@@ -93,16 +93,18 @@ export async function fixture(t, options = {}) {
         case 2129: return send(2130, wrap({}));
         case 2106: {
           if (state.mode === 'reject') return send(2132, wrap({errorCode: 'NOT_ENOUGH_MONEY', description: 'fixture-sensitive-description'}));
+          const positionId = state.nextPositionId ?? 71;
+          state.nextPositionId = positionId + 1;
           const entry = p.tradeSide === 1 ? state.bid + state.spread : state.bid;
           const direction = p.tradeSide === 1 ? 1 : -1;
-          const position = {positionId: 71, positionStatus: 1, price: entry,
+          const position = {positionId, positionStatus: 1, price: entry,
             tradeData: {symbolId: p.symbolId, volume: p.volume, tradeSide: p.tradeSide, label: p.label},
             stopLoss: entry - direction * p.relativeStopLoss / 100000,
             takeProfit: entry + direction * p.relativeTakeProfit / 100000, usedMargin: 300, moneyDigits: 2};
           if (state.mode === 'no-protection') delete position.stopLoss;
           if (state.mode === 'wrong-protection') position.stopLoss -= 0.005;
-          state.positions = [position];
-          const o = {orderId: 81, positionId: 71, clientOrderId: p.clientOrderId, orderStatus: 2, executedVolume: p.volume, tradeData: position.tradeData};
+          state.positions = [...state.positions, position];
+          const o = {orderId: positionId + 10, positionId, clientOrderId: p.clientOrderId, orderStatus: 2, executedVolume: p.volume, tradeData: position.tradeData};
           state.history.push(o);
           if (state.mode === 'partial-then-reject') {
             position.tradeData.volume = p.volume / 2;

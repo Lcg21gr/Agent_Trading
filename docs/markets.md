@@ -21,7 +21,7 @@ El cambio local y las pruebas no acreditan que Hostinger haya publicado esta ver
 
 ## Volumen y protecciones
 
-El consumidor decide el volumen de cada instrucción. No se agrega un presupuesto, objetivo ni máximo fijo en USD. `volume` se expresa en unidades del instrumento, con hasta dos decimales, y cTrader recibe centésimas de unidad. Permanecen el mínimo, máximo y paso del bróker, el máximo configurado en `MAX_VOLUME_UNITS` (1000 unidades por defecto), el límite de posiciones, las órdenes pendientes y la reserva de margen. Un límite de unidades no equivale a un importe común en dólares para todos los instrumentos.
+El consumidor decide el volumen de cada instrucción. No se agrega un presupuesto, objetivo ni máximo fijo en USD. `volume` se expresa en unidades del instrumento, con hasta dos decimales, y cTrader recibe centésimas de unidad. Permanecen el mínimo, máximo y paso del bróker, el máximo configurado en `MAX_VOLUME_UNITS` (1000 unidades por defecto), un límite de posiciones cuando esté configurado, las órdenes pendientes y la reserva de margen. Un límite de unidades no equivale a un importe común en dólares para todos los instrumentos.
 
 SL y TP son obligatorios. Su conversión usa `pipPosition` y `digits` del instrumento; no reutilizar distancias de EURUSD sin consultar los metadatos. El bróker también debe permitir esas protecciones, volumen y dirección. Las validaciones pueden rechazar símbolos habilitados por horario, falta de precio fresco, margen insuficiente, precisión no representable o restricciones del bróker.
 

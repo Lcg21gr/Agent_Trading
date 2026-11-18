@@ -2,6 +2,8 @@
 
 La aplicación está preparada para el hosting Node.js de Business: un proceso HTTP, conexiones WebSocket salientes hacia cTrader y MySQL. Las lecturas pueden reutilizar la conexión con cierre tras 60 segundos sin uso; las escrituras usan una sesión nueva. No requiere Docker, Redis, un VPS ni un worker de estrategia. Hostinger publica un timeout por solicitud de 120 segundos; el transporte tiene un plazo total de 80 segundos, más las escrituras acotadas a MySQL.
 
+Para permitir varias posiciones sin un máximo de cantidad impuesto por la API, publicar la versión con soporte de `MAX_OPEN_POSITIONS=0`, cambiar esa variable existente a `0` y reiniciar/reconstruir. No usar `0` con una versión antigua que solo admite 1–20. La ruta autenticada `/v1/demo/capabilities` debe mostrar `maxOpenPositions: 0` y `positionLimitEnabled: false`. Se mantienen margen, protecciones, volumen, idempotencia y restricciones del bróker. Un entero positivo permite establecer un máximo elegido por el operador, contando toda la cuenta.
+
 `src/server.js` es el punto de entrada de producción: inicia el servidor al ejecutarse directamente o al cargarse mediante `import`/`require` por un proceso del alojamiento. Lee el `.env` situado en la raíz del proyecto y conserva los valores que Hostinger haya suministrado al proceso. La implementación HTTP reutilizable está en `src/app.js`, que puede importarse sin abrir un puerto.
 
 1. Crear una **base MySQL dedicada** y un usuario desde hPanel. Guardar host, nombre, usuario y contraseña en las variables privadas `MYSQL_*` de la aplicación Node.js. Usar el host de base indicado por hPanel. Para una base remota, usar TLS verificado mediante `MYSQL_SSL_CA` y la configuración autorizada por el proveedor.

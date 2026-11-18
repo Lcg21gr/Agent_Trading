@@ -1,5 +1,13 @@
 # Verificación técnica — 17 de noviembre de 2026
 
+## Varias posiciones simultáneas
+
+- Se identificó `MAX_OPEN_POSITIONS=1` como origen del cupo único. Se permite `0` para desactivar el límite de cantidad de la API y se conserva un máximo positivo si el operador lo configura. El nuevo valor predeterminado es `0`; no se ignora una variable explícita existente.
+- **68 pruebas aprobadas, sin omitidas**, con Node.js 22 y MySQL real aislado. La cobertura nueva incluye ADA existente y preview de SOL, 25 posiciones con comprobación de margen, tres aperturas simuladas coexistentes, cierre de una sin afectar a las demás, límites positivos y publicación de la configuración en capabilities. MySQL de pruebas se detuvo y eliminó.
+- Verificación remota de consulta: una posición abierta y cero pendientes; preview de SOLUSD devolvió 422 `MAX_POSITIONS_REACHED`. El mismo cuerpo pasó el preview del código corregido contra cTrader demo con el límite en 0. Solo consultas; el cliente de verificación bloqueó órdenes de apertura/cierre y renovación de tokens. No se cerró la posición existente.
+- `/v1/demo/capabilities` agrega `maxOpenPositions` y `positionLimitEnabled`. OpenAPI actualizado. Mismas claves y rutas.
+- Pendiente aplicar al alojamiento: publicar código con soporte de 0, configurar `MAX_OPEN_POSITIONS=0` y reconstruir/reiniciar. El archivo del escritorio `HABILITAR_POSICIONES_HOSTINGER.env` contiene únicamente ese cambio. No aplicar 0 sobre versiones anteriores que lo rechazan al iniciar.
+
 ## Históricos y estado de varios agentes
 
 - **63 pruebas aprobadas, sin omitidas**, con Node.js 22 y MySQL aislado real. Se verificaron velas por WebSocket simulado, conversión exacta de precios/deltas/volumen de ticks, rangos, periodos, autenticación, datos malformados, estados JSON, conflictos de versión, atribución de operaciones e idempotencia entre agentes. MySQL comprobó Unicode, separación por agente/cuenta, actualizaciones concurrentes y recuperación tras reconectar. La instancia temporal se detuvo y eliminó.

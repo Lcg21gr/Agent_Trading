@@ -105,7 +105,7 @@ test('invalid volume, excessive spread, exposure, unsupported accounts and close
     {body: {...order, volume: '1000.01'}}, {body: {...order, volume: '2000'}},
     {body: {...order, stopLossPips: '101'}},
     {state: {spread: 0.001}},
-    {state: {positions: [{positionId: 7}]}},
+    {state: {positions: [{positionId: 7}]}, cfg: {maxPositions: 1}},
     {change: (s) => { s.symbol.schedule = [{startSecond: 1, endSecond: 2}]; }},
     {change: (s) => { s.trader.accountType = 1; }},
     {change: (s) => { s.trader.balance = 1; }},
@@ -113,7 +113,7 @@ test('invalid volume, excessive spread, exposure, unsupported accounts and close
     {body: {...order, symbol: 'GBPUSD'}},
   ];
   for (const c of changes) {
-    const f = await fixture(t, {state: c.state});
+    const f = await fixture(t, {state: c.state, cfg: c.cfg});
     c.change?.(f.state);
     const r = await f.call('/v1/demo/orders', {method: 'POST', body: c.body || order, key: idempotency});
     assert.equal(r.data.status, 'rejected', JSON.stringify(c.body));

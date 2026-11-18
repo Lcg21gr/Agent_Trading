@@ -1700,6 +1700,16 @@
             "enum": [
               "full_owned_position"
             ]
+          },
+          "maxOpenPositions": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Account-wide API position-count limit. 0 disables this count limit; margin, volume and broker restrictions still apply."
+          },
+          "positionLimitEnabled": {
+            "type": "boolean",
+            "description": "True when maxOpenPositions is a positive configured limit."
           }
         }
       },

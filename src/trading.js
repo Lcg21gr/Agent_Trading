@@ -86,7 +86,7 @@ export async function previewOrder(cfg, session, body, now = new Date()) {
   const relativeTakeProfit = relative(body.takeProfitPips);
   const state = await session.request(2124);
   requireValue((state.order || []).length === 0, 'PENDING_ORDERS_BLOCK_ENTRY');
-  requireValue((state.position || []).length < cfg.maxPositions, 'MAX_POSITIONS_REACHED');
+  if (cfg.maxPositions > 0) requireValue((state.position || []).length < cfg.maxPositions, 'MAX_POSITIONS_REACHED');
   const pnl = await session.request(2187);
   const expected = await session.request(2139, {symbolId, volume: [volume]});
   const margin = (expected.margin || []).find((m) => Number(m.volume) === volume);
@@ -135,6 +135,7 @@ export class TradingService {
       environment: 'demo', tradingEnabled: this.cfg.tradingEnabled,
       allowedSymbols: [...this.cfg.symbols],
       allBrokerSymbols: this.cfg.symbols.includes('*'), symbolUniverse: 'enabled_broker_catalog',
+      maxOpenPositions: this.cfg.maxPositions, positionLimitEnabled: this.cfg.maxPositions > 0,
       marketDefaults: {maxVolumeUnits: this.cfg.maxVolume / 100, maxSpreadBps: this.cfg.maxSpreadBps ?? 300},
       forexDefaults: {maxSpreadPips: this.cfg.maxSpreadPips, maxStopLossPips: this.cfg.maxStopPips},
       limitsBySymbol: Object.fromEntries((this.cfg.symbols.includes('*') ? Object.keys(this.cfg.symbolLimits || {}) : this.cfg.symbols).map((symbol) => [symbol, symbolLimits(this.cfg, symbol)])),

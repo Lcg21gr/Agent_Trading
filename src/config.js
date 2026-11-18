@@ -50,7 +50,7 @@ export function config(env = process.env) {
     reuseReadSession: reuseReadSession === 'true',
     symbolLimits: parseSymbolLimits(env.SYMBOL_LIMITS_JSON),
     maxVolume: integer('MAX_VOLUME_UNITS', 1000, 1, 1000000) * 100,
-    maxPositions: integer('MAX_OPEN_POSITIONS', 1, 1, 20),
+    maxPositions: integer('MAX_OPEN_POSITIONS', 0, 0, Number.MAX_SAFE_INTEGER),
     maxSpreadPips: integer('MAX_SPREAD_PIPS', 3, 1, 100),
     maxSpreadBps: integer('MAX_SPREAD_BPS', 300, 1, 10000),
     maxStopPips: integer('MAX_STOP_LOSS_PIPS', 100, 1, 10000),

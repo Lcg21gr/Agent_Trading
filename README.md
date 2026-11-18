@@ -87,7 +87,7 @@ Una respuesta HTTP 202 conserva el resultado como incierto. Consultar `/v1/demo/
 | `SYMBOL_LIMITS_JSON` | Ajustes opcionales de spread y distancia máxima de SL por instrumento; ver `docs/markets.md` |
 | `ORDER_LABEL` | Etiqueta propia y estable de esta instalación |
 | `MAX_VOLUME_UNITS` | Máximo por apertura; inicial 1000 unidades |
-| `MAX_OPEN_POSITIONS` | Máximo total de posiciones de la cuenta; inicial 1 |
+| `MAX_OPEN_POSITIONS` | `0` por defecto: sin límite de cantidad impuesto por la API. Un entero positivo fija el máximo total de posiciones de la cuenta |
 | `MAX_SPREAD_PIPS` | Spread máximo para pares de divisas reconocidos; inicial 3 pips |
 | `MAX_SPREAD_BPS` | Spread relativo para los demás instrumentos; inicial 300 puntos básicos, equivalentes al 3% |
 | `MAX_STOP_LOSS_PIPS` | Distancia máxima de SL para pares de divisas reconocidos; inicial 100 pips |
